@@ -197,13 +197,30 @@ An implementation is a conforming **verifier** if, for every bundle, it:
 Steps 1–6 MUST require no network access. Verification that can be *down* is
 not verification, and a verifier that phones home is a tracking beacon.
 
+### Conformance suite
+
+[`test/conformance.sh`](test/conformance.sh) checks these properties against
+two implementations directly: bundles signed by either verify in the other,
+canonical digests match byte for byte, both reach the same verdict under the
+same policy, and both fail closed on an unknown signature scheme.
+
+```bash
+IMPL_A="node …/promptsign-node/src/index.mjs" \
+IMPL_B="…/promptsign" IMPL_B_SIGN_ARGS="--local-key" \
+bash test/conformance.sh
+```
+
+Each implementation is a command, so a third party can run their own work as
+`IMPL_A` against any second implementation. With only one supplied, the interop
+checks skip rather than fail and the one-sided checks still run.
+
 ## Implementations
 
 Two independent implementations exist and are held to byte-for-byte agreement
-by a cross-implementation test suite: a single-binary **Rust** core and CLI
-(the primary implementation, also exposed to TypeScript through a native
-binding), and a zero-dependency **Node** reference CLI kept deliberately as a
-second implementation so the spec — not one codebase — remains the definition.
+by the suite above: a single-binary **Rust** core and CLI (the primary
+implementation, also exposed to TypeScript through a native binding), and a
+zero-dependency **Node** reference CLI kept deliberately as a second
+implementation so the spec — not one codebase — remains the definition.
 
 Interoperability with existing Sigstore tooling is intended: bundles carry
 standard Fulcio certificate chains and Rekor `dsse` entries, and ECDSA P-256
