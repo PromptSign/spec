@@ -1,0 +1,29 @@
+# Normalize text files to LF, both in the repo and in the working tree.
+# PromptSign hashes file contents, so line endings must be byte-identical on
+# every platform -- otherwise a manifest signed on Windows fails to verify on
+# Linux. This overrides each machine's core.autocrlf setting.
+* text=auto eol=lf
+
+# Binaries: never convert, never diff as text.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.pdf   binary
+*.zip   binary
+*.gz    binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.wasm  binary
+*.node  binary
+*.exe   binary
+*.dll   binary
+*.so    binary
+*.dylib binary
+
+# Lockfiles: text, but collapsed in GitHub diffs and review.
+Cargo.lock       linguist-generated
+package-lock.json linguist-generated
