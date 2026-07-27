@@ -54,9 +54,11 @@ an individual file. Skills bundle scripts the host executes; signing only the
 
 ## Verification requirements
 
-A verifier MUST, in order: (1) verify the envelope signature
-([Spec 03](03-bundle.md)); (2) recompute every listed digest from disk and fail
-on any mismatch or missing file; (3) for `scope: dir`, fail on any unlisted
-file present; (4) evaluate trust policy ([Spec 04](04-policy.md)). Integrity
-failures (step 2–3) are unconditional — policy cannot waive them for a signed
-artifact.
+A verifier MUST perform the following steps in order:
+
+1. Verify the envelope signature ([Spec 03](03-bundle.md)).
+2. Recompute every listed digest from disk. Fail if any digest mismatches or any referenced file is missing.
+3. If `scope: dir`, fail if any unlisted file is present.
+4. Evaluate the trust policy ([Spec 04](04-policy.md)).
+
+Integrity failures (steps 2–3) are unconditional. Policy MUST NOT waive them for a signed artifact.
