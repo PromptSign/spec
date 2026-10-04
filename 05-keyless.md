@@ -114,10 +114,20 @@ Status Protocol (OCSP) is consulted: revocation is the feed of spec/06 (D6).
   "action": "enforce" }`. A rule with `issuer` never matches a keyful bundle
   (its issuer is absent).
 - **TOFU pins for keyless bundles pin `identity` + `issuer` with an empty
-  `keyid`** — the ephemeral key changes on every signing, so pinning a key
+  `keyid`.** The ephemeral key changes on every signing, so pinning a key
   fingerprint would be meaningless. Pin comparison: `identity`, `keyid`, and
   `issuer` must all match; a keyful↔keyless transition therefore hard-fails
   (keyid `"…"` vs `""`), which is the correct signal for a signer change.
+- **The pinned identity of a CI workflow ignores its git ref.** A CI signer's
+  identity is a workflow URI such as
+  `https://github.com/acme/skills/.github/workflows/sign.yml@refs/tags/v1.4.2`,
+  and every release tag changes the part after `@refs/`. When comparing a
+  keyless pin, both identities are cut at the first `@refs/` if they start with
+  `https://`; the rest must match exactly. Email identities and keyful
+  identities are compared whole. The pin file keeps the full identity it first
+  saw, so pins written before this rule need no migration. A policy rule's
+  `identity` glob still sees the full URI, so a rule can require
+  `*@refs/tags/*` to refuse signatures made from a branch.
 
 ## 6. Signing flow (informative)
 

@@ -52,6 +52,28 @@ an individual file. Skills bundle scripts the host executes; signing only the
 `.promptsign/`, `.git/`, `node_modules/`, `__pycache__/`, `.venv/`, and
 `*.psig.json` sidecars. File paths are sorted lexicographically for determinism.
 
+### Host-owned bookkeeping
+
+A closed-tree `scope: dir` manifest fails on any unlisted file, but a host
+harness can write its own bookkeeping into a directory after it is signed. A
+plugin cache directory managed by Claude Code is one such case: the runtime
+writes `.in_use/<pid>` while a session holds the plugin, and `.orphaned_at`
+once a newer version supersedes it. Neither file is part of the signed
+artifact, and a genuine, correctly-signed release MUST still verify clean with
+them present.
+
+A verifier MUST therefore also treat the following as excluded, on the exact
+same terms as the list above:
+
+- `.in_use/` — a directory of host-written, per-session marker files.
+- `.orphaned_at` — a host-written file holding a superseded-version timestamp.
+
+This list is closed and host-owned, not signer-configurable. A publisher MUST
+NOT be able to grow it: an `--exclude` flag or similar signer-supplied
+exclusion would let a signer carve an unverified hole into their own bundle,
+which defeats the purpose of a closed tree. Implementations MUST hardcode this
+set and change it only when this spec changes.
+
 ## Verification requirements
 
 A verifier MUST perform the following steps in order:

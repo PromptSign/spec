@@ -39,7 +39,9 @@ identities may sign which names**, and what happens when they didn't.
   `(name → identity, keyid)` pair is pinned in `~/.promptsign/pins.json`.
   A later artifact with the same name but a **different identity or key hard-fails
   regardless of `action`** — this is the account-compromise / repo-transfer
-  tripwire (threat T3), and it requires zero publisher onboarding.
+  tripwire (threat T3), and it requires zero publisher onboarding. For keyless
+  CI signers, a new release tag of the same workflow is the same identity
+  (spec/05 §5).
 
 ## Unconditional rules (policy cannot waive)
 

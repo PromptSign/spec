@@ -322,6 +322,28 @@ if have_b; then
   fi
 fi
 
+# ---- 11. Host-owned bookkeeping paths are excluded from both sides ----------
+# spec/01 "Host-owned bookkeeping": a harness (e.g. Claude Code's plugin cache)
+# writes .in_use/<pid> and .orphaned_at into an already-signed directory. A
+# genuine, correctly-signed release must still verify clean with them present,
+# on both implementations. Uses skill-b (signed once by B in section 2, never
+# re-signed since) under a fresh PROMPTSIGN_HOME, since skill-a is deliberately
+# left mid-attack by the TOFU checks in section 5.
+if have_b && b_signs; then
+  export PROMPTSIGN_HOME="$WORK/home-hostowned"
+  mkdir -p "$WORK/skill-b/.in_use"
+  printf '{"pid":60356}' > "$WORK/skill-b/.in_use/60356"
+  printf '1788889068596' > "$WORK/skill-b/.orphaned_at"
+  $IMPL_B verify "$WORK/skill-b" >/dev/null 2>&1
+  check "B tolerates .in_use/ and .orphaned_at left by the host" 0 $?
+  export PROMPTSIGN_HOME="$WORK/home-hostowned-a"
+  $IMPL_A verify "$WORK/skill-b" >/dev/null 2>&1
+  check "A tolerates the same host-owned paths" 0 $?
+  rm -rf "$WORK/skill-b/.in_use" "$WORK/skill-b/.orphaned_at"
+else
+  skip "section 11 host-owned bookkeeping (B cannot sign)"
+fi
+
 echo
 echo "conformance: $PASS passed, $FAIL failed, $SKIP skipped  (work dir: $WORK)"
 [ "$FAIL" = 0 ]
