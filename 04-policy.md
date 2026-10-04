@@ -5,11 +5,26 @@ identities may sign which names**, and what happens when they didn't.
 
 ## Resolution order
 
+The **user policy** is the first of:
+
 1. `--policy <path>` CLI flag
 2. `PROMPTSIGN_POLICY` env var
-3. `<project>/.promptsign/policy.json`
-4. `~/.promptsign/policy.json` (or `$PROMPTSIGN_HOME/policy.json`)
-5. Built-in default: `{ "default": "warn", "rules": [{ "pattern": "*", "action": "warn", "tofu": true }] }`
+3. `~/.promptsign/policy.json` (or `$PROMPTSIGN_HOME/policy.json`)
+4. Built-in default: `{ "default": "warn", "rules": [{ "pattern": "*", "action": "warn", "tofu": true }] }`
+
+A **project policy**, `<project>/.promptsign/policy.json`, is evaluated *in
+addition* to the user policy, never instead of it. The project directory is
+where untrusted instruction files come from, so its policy may only tighten:
+
+- Verifiers evaluate the user policy, then the project policy on the same
+  input. Findings from both are reported (project findings prefixed
+  `project policy: `) and the worse action wins.
+- A project policy therefore cannot lower an action, switch checks `off`, or
+  trust an identity, key or root the user policy does not accept.
+- A project policy never checks or writes TOFU pins; pins belong to the user.
+- Revocation settings (`revocation_feed` and related keys) are read from the
+  user policy only.
+- A project policy that does not parse is an error, like a user policy.
 
 ## Format
 
@@ -35,6 +50,8 @@ identities may sign which names**, and what happens when they didn't.
   exit 0), `off` (no policy checks; crypto/integrity still apply).
 - **identity** — glob the verified signer identity must match.
 - **keyid** — exact keyid pin for the rule.
+- **trust_root** — name of the trust root (spec/05) the signature must chain
+  to, e.g. `sigstore-public` or a root added with `promptsign trust add`.
 - **tofu** — trust-on-first-use: on first successful verification the
   `(name → identity, keyid)` pair is pinned in `~/.promptsign/pins.json`.
   A later artifact with the same name but a **different identity or key hard-fails
