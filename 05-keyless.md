@@ -73,19 +73,22 @@ over the compact JSON `{"body":…,"integratedTime":…,"logID":…,"logIndex":�
 
 ## 4. Verification algorithm (offline)
 
-Given a bundle with `signer.scheme == "keyless"` and a trust store
+Given a bundle with `signer.scheme == "keyless"` and the registry of trust
+roots (spec/07). The built-in root is the trust store
 (`$PROMPTSIGN_TRUST_DIR` or `~/.promptsign/trust/`: `fulcio.pem` — one or more
-certificate authority certs; `rekor.pub` — the log's P-256 public key, SPKI
-PEM):
+certificate authority certs; `rekor.pub` — the log's P-256 public keys, SPKI
+PEM, oldest first). Steps 2 and 3 use the root the chain ends at, and
+spec/07 §3.1 adds that root's validity windows:
 
 1. **Envelope**: verify `signatures[i].sig` over `PAE(payloadType, payload)`
    with the leaf certificate's public key (Ed25519 raw / ECDSA-P256 DER).
 2. **Chain**: `certChain[i]` must be signed by `certChain[i+1]`; the last chain
-   cert must be signed by (or byte-equal to) a trust-store certificate
-   authority.
+   cert must be signed by (or byte-equal to) a certificate authority of a
+   keyless root.
 3. **SET**: recompute the canonical entry JSON from `transparency.{body,
    integratedTime, logId, logIndex}` and verify `signedEntryTimestamp` with
-   `rekor.pub`; `logId` MUST equal the hex SHA-256 of `rekor.pub`'s SPKI DER.
+   the log key of that root whose `logId` (hex SHA-256 of its SPKI DER)
+   equals the entry's `logId`.
 4. **Entry binding**: decode `body`; `kind` MUST be `dsse`;
    `spec.payloadHash` MUST equal SHA-256 of the decoded envelope payload;
    `spec.signatures[]` MUST contain the envelope's signature value.

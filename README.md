@@ -42,23 +42,25 @@ Anything that displays a verification result should **name the identity**
 | 04 | [Trust policy](04-policy.md) | `promptsign/policy/v1` | Draft v0.1 |
 | 05 | [Keyless (Sigstore)](05-keyless.md) | extends `promptsign/bundle/v1` | Draft v0.1 |
 | 06 | [Revocation feed](06-revocation.md) | `promptsign/revocation/v1` | Draft v0.1 |
+| 07 | [Trust roots and trust bundles](07-trust-roots.md) | `promptsign/trust-bundle/v1` | Draft v0.1 |
 
-All six are normative. No schema identifier is stable yet; see
+All seven are normative. No schema identifier is stable yet; see
 [Versioning](#versioning) for how they will change.
 
 **Reading order** is also dependency order:
 
 ```
-01 manifest ──┬─▶ 03 bundle ──┬─▶ 05 keyless ──┐
-02 canon. ────┘               │                ├─▶ 06 revocation
-                              └─▶ 04 policy ───┘
+01 manifest ──┬─▶ 03 bundle ──┬─▶ 05 keyless ──┬─▶ 06 revocation
+02 canon. ────┘               │                │
+                              └─▶ 04 policy ───┴─▶ 07 trust roots
 ```
 
 01 defines *what* is signed and 02 defines the bytes its digests are taken
 over; 03 defines the envelope carrying the signature; 04 decides whether a
 valid signature is one you should accept; 05 replaces local keys with
 certificate-bound OpenID Connect (OIDC) identities; 06 retracts signatures
-after the fact.
+after the fact; 07 says which certificate authorities and logs a verifier
+trusts, and how an organization distributes and rotates its own.
 
 ## Threat model
 

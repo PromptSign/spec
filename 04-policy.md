@@ -50,8 +50,9 @@ where untrusted instruction files come from, so its policy may only tighten:
   exit 0), `off` (no policy checks; crypto/integrity still apply).
 - **identity** — glob the verified signer identity must match.
 - **keyid** — exact keyid pin for the rule.
-- **trust_root** — name of the trust root (spec/05) the signature must chain
-  to, e.g. `sigstore-public` or a root added with `promptsign trust add`.
+- **trust_root** — glob the name of the trust root (spec/07) the signature
+  chained to must match, e.g. `sigstore-public`, a root added with
+  `promptsign trust add`, or `acme/*` for every root of the bundle `acme`.
 - **tofu** — trust-on-first-use: on first successful verification the
   `(name → identity, keyid)` pair is pinned in `~/.promptsign/pins.json`.
   A later artifact with the same name but a **different identity or key hard-fails
@@ -71,8 +72,10 @@ where untrusted instruction files come from, so its policy may only tighten:
 
 `revocation_feed`, `revocation_feed_identity`, `revocation_feed_issuer`,
 `max_feed_staleness`, and `on_feed_stale` are specified in
-[Spec 06](06-revocation.md).
+[Spec 06](06-revocation.md). `on_trust_bundle_stale` is specified in
+[Spec 07](07-trust-roots.md) §5.6. All of them are read from the user policy
+only.
 
-`require_attestations` (e.g. `promptsign/scan/v1`, `promptsign/review/v1`) and
-`x509_root` (enterprise root pin) are reserved; no spec in this series defines
-them yet.
+`require_attestations` (e.g. `promptsign/scan/v1`, `promptsign/review/v1`) is
+reserved; no spec in this series defines it yet. Enterprise roots are
+`trust_root` (spec/07).
