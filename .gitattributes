@@ -27,3 +27,6 @@
 # Lockfiles: text, but collapsed in GitHub diffs and review.
 Cargo.lock       linguist-generated
 package-lock.json linguist-generated
+
+# Conformance fixtures carry signatures over their exact bytes: store them as written.
+test/fixtures/** -text

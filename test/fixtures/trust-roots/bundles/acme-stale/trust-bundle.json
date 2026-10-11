@@ -1,0 +1,82 @@
+{
+  "expires": "2026-09-30T00:00:00Z",
+  "issued": "2026-09-01T00:00:00Z",
+  "name": "acme",
+  "roots": {
+    "old": {
+      "certificateAuthorities": [
+        {
+          "certChain": {
+            "certificates": [
+              {
+                "rawBytes": "MIIBnTCCAUOgAwIBAgIBATAKBggqhkjOPQQDAjA1MRkwFwYDVQQKDBBwcm9tcHRzaWduIHRlc3RzMRgwFgYDVQQDDA9hY21lIG9sZCBmdWxjaW8wIBcNMjUwMTAxMDAwMDAwWhgPMjEyNjAxMDEwMDAwMDBaMDUxGTAXBgNVBAoMEHByb21wdHNpZ24gdGVzdHMxGDAWBgNVBAMMD2FjbWUgb2xkIGZ1bGNpbzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABCsv2CzX9FuJmUXqJVEpMQodiuZd9n4mTc0rla7kmHO2PJQRA3uIBpMx+wwOMTYbtPhilfwvxP3HYMJvqgfy8M2jQjBAMB0GA1UdDgQWBBR35NzvELKOz4jHwtH0xnQZTKwjGzAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjAKBggqhkjOPQQDAgNIADBFAiEA0qcqxDacqCgkUSUZF9UmpE+BW3fqf0xtd141Dg2xW7gCIAIoXVdxfGz+3bavmap1gE1sjKSmMZvnn50BLyq/htmM"
+              }
+            ]
+          },
+          "subject": {
+            "commonName": "test"
+          },
+          "validFor": {
+            "end": "2026-07-01T00:00:00Z",
+            "start": "2025-01-01T00:00:00Z"
+          }
+        }
+      ],
+      "ctlogs": [],
+      "mediaType": "application/vnd.dev.sigstore.trustedroot+json;version=0.1",
+      "timestampAuthorities": [],
+      "tlogs": [
+        {
+          "hashAlgorithm": "SHA2_256",
+          "logId": {
+            "keyId": "GV/lO+SRLgxPnYhT3l59umSrFI6r67qfK3bnN1/B5rM="
+          },
+          "publicKey": {
+            "keyDetails": "PKIX_ECDSA_P256_SHA_256",
+            "rawBytes": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEgwXqMAFnPk2O69oZ/RP6yfHnV/emueb5UtMh+uWa5dycClTjgfb1SNWfJfIqEKgb4AdnkniK0uyDxjNDZl23oQ=="
+          }
+        }
+      ]
+    },
+    "prod": {
+      "certificateAuthorities": [
+        {
+          "certChain": {
+            "certificates": [
+              {
+                "rawBytes": "MIIBoDCCAUWgAwIBAgIBATAKBggqhkjOPQQDAjA2MRkwFwYDVQQKDBBwcm9tcHRzaWduIHRlc3RzMRkwFwYDVQQDDBBhY21lIHByb2QgZnVsY2lvMCAXDTI2MDEwMTAwMDAwMFoYDzIxMjYwMTAxMDAwMDAwWjA2MRkwFwYDVQQKDBBwcm9tcHRzaWduIHRlc3RzMRkwFwYDVQQDDBBhY21lIHByb2QgZnVsY2lvMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEmDxH+l9+FodyaRDFuvnFm1eA4WUr2TacM6dzMUEqtbefJAlZFzl0UwmAJn7fxIG3LxEu3D9DEZaPgqb6xfQGpKNCMEAwHQYDVR0OBBYEFK8PykILukuT1zzKfGlpNjrFR8rgMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMAoGCCqGSM49BAMCA0kAMEYCIQDloLhU7J2jnkDG1OGLl1cT5rsFnFBqhPBuAyF5pb0t7QIhAM0vzHUM6hyl9KS51+gbMonxg9s6k1I5TTeph7ds+bQ+"
+              }
+            ]
+          },
+          "subject": {
+            "commonName": "test"
+          }
+        }
+      ],
+      "ctlogs": [],
+      "mediaType": "application/vnd.dev.sigstore.trustedroot+json;version=0.1",
+      "timestampAuthorities": [],
+      "tlogs": [
+        {
+          "hashAlgorithm": "SHA2_256",
+          "logId": {
+            "keyId": "0ckM/+RivJIIbnjhgbQKfzuDQ1zh2VrC34zmukFJrbo="
+          },
+          "publicKey": {
+            "keyDetails": "PKIX_ECDSA_P256_SHA_256",
+            "rawBytes": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEa/hdX+hFmLEMphmewJzNfTXc1xlf3R3Hc3oMZwBu8lG5UvJe7B3u0fyhkYOJkEZjV9MUrft+l2C42a/I85qVrQ=="
+          }
+        }
+      ]
+    }
+  },
+  "schema": "promptsign/trust-bundle/v1",
+  "signers": [
+    {
+      "identity": "https://github.com/acme/trust/.github/workflows/publish.yml@refs/heads/main",
+      "issuer": "https://token.actions.githubusercontent.com",
+      "root": "prod"
+    }
+  ],
+  "version": 1
+}

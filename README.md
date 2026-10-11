@@ -204,7 +204,9 @@ not verification, and a verifier that phones home is a tracking beacon.
 [`test/conformance.sh`](test/conformance.sh) checks these properties against
 two implementations: bundles signed by either verify in the other, canonical
 digests match byte for byte, both reach the same verdict under the same policy,
-and both fail closed on an unknown signature scheme.
+both fail closed on an unknown signature scheme, and both reach the
+[07 §6](07-trust-roots.md#6-conformance) verdicts on the shared trust-root
+fixtures in [`test/fixtures/trust-roots`](test/fixtures/trust-roots).
 
 ```bash
 IMPL_A="node …/promptsign-node/src/index.mjs" \

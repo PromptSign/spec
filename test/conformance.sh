@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # PromptSign conformance suite — wire-format agreement between two independent
-# implementations of spec/01–04.
+# implementations of spec/01–05 and 07.
 #
 # One implementation is a spec of one. This suite is how you check that a second
 # one agrees: bundles signed by either verify in the other, canonical digests
@@ -249,33 +249,42 @@ else
 fi
 
 # ---- 8. Unknown signature scheme must fail closed ----------------------------
-# spec/05 §1: a v1 verifier that only knows `ed25519` must reject `keyless`
-# outright, never verify against the embedded key without checking the cert.
-if have_b && b_signs; then
-  mkdir -p "$WORK/skill-kl"
-  cp -r "$WORK/skill-b/." "$WORK/skill-kl/"
+# spec/05 §1: a verifier rejects a scheme it does not know outright, and a
+# bundle relabelled `keyless` without a certificate chain fails rather than
+# verifying against the embedded key.
+relabel() { # relabel <dir> <scheme>
+  mkdir -p "$1"
+  cp -r "$WORK/skill-b/." "$1/"
   jsonrun '
 import json, sys
-p = sys.argv[1]
+p, scheme = sys.argv[1], sys.argv[2]
 b = json.load(open(p))
-b["signer"]["scheme"] = "keyless"
+b["signer"]["scheme"] = scheme
 open(p, "w").write(json.dumps(b, indent=2) + "\n")
 ' '
-const fs = require("fs"), p = process.argv[1];
+const fs = require("fs"), [p, scheme] = process.argv.slice(1);
 const b = JSON.parse(fs.readFileSync(p, "utf8"));
-b.signer.scheme = "keyless";
+b.signer.scheme = scheme;
 fs.writeFileSync(p, JSON.stringify(b, null, 2) + "\n");
-' "$WORK/skill-kl/.promptsign/bundle.json"
+' "$1/.promptsign/bundle.json" "$2"
+}
+if have_b && b_signs; then
+  relabel "$WORK/skill-x" "x-unknown"
   if [ $? = 127 ]; then
     skip "unknown-scheme fail-closed (needs python3 or node)"
   else
+    relabel "$WORK/skill-kl" "keyless"
     export PROMPTSIGN_HOME="$WORK/home-consumer"
-    $IMPL_A verify "$WORK/skill-kl" >/dev/null 2>&1
+    $IMPL_A verify "$WORK/skill-x" >/dev/null 2>&1
     check "A fails closed on an unknown signature scheme" 2 $?
-    $IMPL_A verify "$WORK/skill-kl" 2>/dev/null | grep -q "unsupported signature scheme"
+    $IMPL_A verify "$WORK/skill-x" 2>/dev/null | grep -q "unsupported signature scheme"
     check "A says why (not a silent pass)" 0 $?
+    $IMPL_B verify "$WORK/skill-x" >/dev/null 2>&1
+    check "B rejects the same unknown scheme" 2 $?
+    $IMPL_A verify "$WORK/skill-kl" >/dev/null 2>&1
+    check "A fails a keyless label with no certificate chain" 2 $?
     $IMPL_B verify "$WORK/skill-kl" >/dev/null 2>&1
-    check "B rejects the same malformed bundle" 2 $?
+    check "B fails the same relabelled bundle" 2 $?
   fi
 else
   skip "section 8 fail-closed (B cannot sign)"
@@ -342,6 +351,84 @@ if have_b && b_signs; then
   rm -rf "$WORK/skill-b/.in_use" "$WORK/skill-b/.orphaned_at"
 else
   skip "section 11 host-owned bookkeeping (B cannot sign)"
+fi
+
+# ---- 12. Trust roots and trust bundles (spec/07 §6) -------------------------
+# Shared fixtures in fixtures/trust-roots (its README states every verdict): an
+# organization's own Fulcio/Rekor roots arrive in a signed trust bundle. Each
+# side runs every check with its own PROMPTSIGN_HOME; then their output must
+# match byte for byte.
+TR="$HERE/fixtures/trust-roots"
+TR_SIGNER='https://github.com/acme/trust/*'
+
+trust_roots() { # trust_roots <A|B> <command...>
+  local side="$1"; shift
+  local home="$WORK/home-tr-$side" art="$TR/artifacts"
+  export PROMPTSIGN_HOME="$home"
+  mkdir -p "$home"
+
+  "$@" verify "$art/prod-signed.txt" >/dev/null 2>&1
+  check "$side fails an organization-signed file before its bundle is installed" 2 $?
+  "$@" trust add acme "$TR/bundles/acme-v2-unlisted-signer/trust-bundle.json" --signer "$TR_SIGNER" --yes >/dev/null 2>&1
+  check "$side refuses to install a bundle signed by a signer it does not list" 1 $?
+  "$@" trust add acme "$TR/bundles/acme-v1/trust-bundle.json" --signer "$TR_SIGNER" --yes >/dev/null 2>&1
+  check "$side installs acme v1" 0 $?
+  "$@" verify "$art/prod-signed.txt" > "$WORK/tr-$side-prod.txt" 2>&1
+  check "$side verifies through acme/prod" 0 $?
+  "$@" verify "$art/before-retirement.txt" > "$WORK/tr-$side-before.txt" 2>&1
+  check "$side verifies a signature made while acme/old's CA was valid" 0 $?
+  "$@" verify "$art/after-retirement.txt" > "$WORK/tr-$side-after.txt" 2>&1
+  check "$side fails a signature made after acme/old's CA validFor ended" 2 $?
+  grep -q '(root acme/prod)' "$WORK/tr-$side-prod.txt"
+  check "$side names the root a signature anchored at" 0 $?
+  "$@" trust add acme "$TR/bundles/acme-v2-unlisted-signer/trust-bundle.json" >/dev/null 2>&1
+  check "$side refuses an update from a signer v1 does not list" 1 $?
+  "$@" trust add acme "$TR/bundles/acme-v2/trust-bundle.json" >/dev/null 2>&1
+  check "$side updates acme to v2" 0 $?
+  "$@" trust add acme "$TR/bundles/acme-v1/trust-bundle.json" >/dev/null 2>&1
+  check "$side refuses a rollback to v1" 1 $?
+  "$@" trust list > "$WORK/tr-$side-list.txt" 2>&1
+
+  # An expired bundle cannot be installed, so it goes straight into the store.
+  export PROMPTSIGN_HOME="$home-stale"
+  mkdir -p "$home-stale/trust/bundles/acme"
+  cp "$TR/bundles/acme-stale/"* "$home-stale/trust/bundles/acme/"
+  "$@" verify "$art/prod-signed.txt" > "$WORK/tr-$side-stale.txt" 2>&1
+  check "$side verifies under a stale bundle (default: warn)" 0 $?
+  grep -q 'trust bundle "acme" expired at 2026-09-30T00:00:00Z' "$WORK/tr-$side-stale.txt"
+  check "$side reports the stale bundle" 0 $?
+  printf '{"schema":"promptsign/policy/v1","default":"warn","on_trust_bundle_stale":"fail","rules":[]}\n' \
+    > "$home-stale/policy.json"
+  "$@" verify "$art/prod-signed.txt" --no-pin-updates >/dev/null 2>&1
+  check "$side fails under on_trust_bundle_stale: fail" 2 $?
+
+  # The public root: the files `trust fetch` writes, nothing else configured.
+  if [ -f "$TR/public/public-signed.txt.psig.json" ]; then
+    export PROMPTSIGN_HOME="$home-public"
+    mkdir -p "$home-public/trust"
+    cp "$TR/public/fulcio.pem" "$TR/public/rekor.pub" "$home-public/trust/"
+    "$@" verify "$TR/public/public-signed.txt" > "$WORK/tr-$side-public.txt" 2>&1
+    check "$side verifies a public keyless signature with no configuration" 0 $?
+  else
+    skip "$side public keyless signature (fixture not signed yet)"
+  fi
+}
+
+# $IMPL_A / $IMPL_B are intentionally unquoted: they may carry arguments.
+trust_roots A $IMPL_A
+if have_b; then
+  trust_roots B $IMPL_B
+  for f in prod before after list stale public; do
+    [ -f "$WORK/tr-A-$f.txt" ] || continue
+    if diff -u <(sed "s|$WORK/home-tr-A|HOME|g" "$WORK/tr-A-$f.txt") \
+               <(sed "s|$WORK/home-tr-B|HOME|g" "$WORK/tr-B-$f.txt") > "$WORK/tr-diff.txt"; then
+      PASS=$((PASS+1)); echo "ok   - trust-root output byte-identical ($f)"
+    else
+      FAIL=$((FAIL+1)); echo "FAIL - trust-root output differs ($f):"; cat "$WORK/tr-diff.txt"
+    fi
+  done
+else
+  skip "section 12 on B and output parity (no IMPL_B)"
 fi
 
 echo

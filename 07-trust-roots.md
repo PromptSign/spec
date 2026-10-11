@@ -246,15 +246,17 @@ it; a project policy cannot.
 
 ## 6. Conformance
 
-Implementations claiming this spec MUST agree, on the shared fixtures, that:
+An implementation that claims this spec MUST reach these verdicts on the shared
+fixtures in [`test/fixtures/trust-roots`](test/fixtures/trust-roots):
 
-- a public keyless signature verifies with no configuration, with `root`
-  `sigstore-public`;
-- a signature from an organization's Fulcio/Rekor verifies offline once its
-  bundle is installed, with `root` `<bundle>/<root>`, and fails before;
-- a signature whose `integratedTime` lies outside its CA's or log's
-  `validFor` fails;
-- a bundle update signed by a signer the installed version does not list is
-  rejected, as is a lower version;
-- a stale bundle's roots verify with a warning under the default policy and
+- A public keyless signature verifies with the built-in root alone, with
+  `root` `sigstore-public`.
+- A signature made through an organization's own Fulcio and Rekor fails until
+  you install the organization's bundle, then verifies offline with `root`
+  `<bundle>/<root>`.
+- A signature whose `integratedTime` falls outside its CA's or log's
+  `validFor` window fails.
+- The verifier rejects a bundle update from a signer the installed version does
+  not list, and rejects an update with a lower version.
+- A stale bundle's roots verify with a warning under the default policy, and
   fail under `on_trust_bundle_stale: "fail"`.

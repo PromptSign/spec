@@ -1,0 +1,1 @@
+signed through the public-good Sigstore instance
