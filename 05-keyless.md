@@ -244,17 +244,35 @@ Status Protocol (OCSP) is consulted: revocation is the feed of spec/06 (D6).
 
 ## 6. Signing flow (informative)
 
-1. Obtain an OIDC token: `--identity-token <jwt>`, `$SIGSTORE_ID_TOKEN`, or
+1. Choose the services from a Sigstore SigningConfig v0.2 document:
+   `$PROMPTSIGN_SIGNING_CONFIG`, else `signing_config.json` in the trust
+   directory (spec/07 §2.3), else public Fulcio and Rekor v1 with no timestamp
+   authority. From each list, keep the services whose `validFor` holds the
+   current time and whose `majorApiVersion` the signer speaks (Fulcio 1, Rekor
+   1 and 2, timestamp authority 1), then take the highest version and, among
+   those, the latest start. A bundle staples one log entry, so the signer
+   refuses a config whose selector asks for more than one log.
+2. Obtain an OIDC token: `--identity-token <jwt>`, `$SIGSTORE_ID_TOKEN`, or
    GitHub Actions ambient credentials (`ACTIONS_ID_TOKEN_REQUEST_URL` +
    `_TOKEN`, audience `sigstore`).
-2. Generate an ephemeral Ed25519 keypair; proof-of-possession = signature over
-   the token's `sub` claim.
-3. `POST /api/v2/signingCert` (Fulcio) → short-lived certificate chain.
-4. Sign `PAE(payloadType, payload)`; `POST /api/v1/log/entries` (Rekor, kind
-   `dsse`) → `{body, integratedTime, logID, logIndex, signedEntryTimestamp}`.
-5. Staple everything into the bundle; **discard the key**. Self-verify (full
+3. Generate an ephemeral keypair: Ed25519 for a Rekor v1 log, ECDSA P-256 for
+   a Rekor v2 log (§2). The proof of possession is a signature over the
+   token's `email` claim, or its `sub` claim when it has no email.
+4. `POST /api/v2/signingCert` (Fulcio) → short-lived certificate chain.
+5. Sign `PAE(payloadType, payload)`. For each chosen timestamp authority,
+   `POST` an RFC 3161 `TimeStampReq` over SHA-256 of the signature, with
+   `certReq` set, and keep the `TimeStampResp` in `timestamps`.
+6. Log the entry. Rekor v1: `POST /api/v1/log/entries` (kind `dsse`) →
+   `{body, integratedTime, logID, logIndex, signedEntryTimestamp}`. Rekor v2:
+   `POST /api/v2/log/entries` with a `hashedRekordRequestV002` → a
+   `TransparencyLogEntry`; copy its `canonicalizedBody`, inclusion proof and
+   checkpoint into `transparency` (§1).
+7. Staple everything into the bundle; **discard the key**. Self-verify (full
    offline pipeline, policy skipped) before reporting success.
 
-Default endpoints are public Sigstore (`fulcio.sigstore.dev`,
-`rekor.sigstore.dev`), overridable via `$PROMPTSIGN_FULCIO_URL` /
-`$PROMPTSIGN_REKOR_URL` (enterprise deployments, tests).
+`$PROMPTSIGN_FULCIO_URL`, `$PROMPTSIGN_REKOR_URL` and `$PROMPTSIGN_TSA_URL`
+replace the chosen URLs for enterprise deployments and tests. If you set either
+of the first two, the signer ignores the trust directory's config, since that
+file describes the public instance. Sigstore's default public config selects
+Rekor v1 and a timestamp from `timestamp.sigstore.dev`. Sigstore publishes a
+second config that selects its Rekor v2 log.

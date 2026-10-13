@@ -57,7 +57,7 @@ The registry is every root a verifier accepts, in this order:
    joins the two into the built-in root: the document's CAs, logs and timestamp
    authorities first, then the pair's certificates and any log the document
    lacks. The Rekor v2 logs and the timestamp authority come from the document.
-   Either source works on its own.
+   Either source works on its own. `trust fetch` writes all three (§2.3).
 2. **Named roots**: `$PROMPTSIGN_HOME/trust/roots/<name>.json`, by name.
 3. **Bundle roots**: the roots of each installed trust bundle (§5.5), named
    `<bundle>/<root>`.
@@ -82,12 +82,40 @@ root's name cannot occur in a named root, so the two never collide.
 | `trust add <name> <url-or-file>` | A trust bundle (§5). |
 | `trust list` | Every root in the registry: name, kind, fingerprint, subject, and for bundle roots the bundle's version and expiry. |
 | `trust rm <name>` | Removes a named root, or a bundle and all its roots. |
-| `trust fetch` | Refreshes the built-in root and every installed bundle (§5.4). |
+| `trust fetch` | Refreshes the built-in root (§2.3) and every installed bundle (§5.4). |
 
 Adding shows the root's subject and fingerprint (for a bundle, its signer,
 version, expiry and every root) and asks the user to confirm. Non-interactive
 use takes `--yes`. Adding refuses a name already in use and a root already
 trusted under another name.
+
+### 2.3 Fetching the built-in root
+
+`trust fetch` writes the built-in root into the trust directory. It takes
+`fulcio.pem` from Fulcio's `/api/v1/rootCert` and `rekor.pub` from Rekor's
+`/api/v1/log/publicKey`. Those endpoints serve current material only, so
+`trust fetch` keeps a cached file that holds an entry the response lacks,
+unless you pass `--force`.
+
+It takes `trusted_root.json` and `signing_config.json` (spec/05 §6) from the
+targets `trusted_root.json` and `signing_config.v0.2.json` of Sigstore's TUF
+repository (`$PROMPTSIGN_TUF_URL`, default `https://tuf-repo-cdn.sigstore.dev`).
+The client follows the TUF 1.0 client workflow, starting from a root it ships
+(`$PROMPTSIGN_TUF_ROOT` replaces it):
+
+- Each newer root must carry a threshold of signatures from the previous
+  root's keys and from its own.
+- Timestamp, snapshot and targets metadata must carry their role's threshold,
+  the version the metadata above them names, and an `expires` still ahead.
+- Each target must match the length and hashes the targets metadata gives.
+- The client keeps verified metadata under `<trust dir>/tuf/` and refuses a
+  timestamp or snapshot older than the one it kept.
+
+`trust fetch` writes the two documents over the cached copies without that
+check, because Sigstore signs them and keeps retired entries with a closed
+window. It fetches and checks all four files before it writes any. If you set
+`$PROMPTSIGN_FULCIO_URL` or `$PROMPTSIGN_REKOR_URL`, it skips the TUF step
+unless you also set `$PROMPTSIGN_TUF_URL`.
 
 ## 3. Choosing a root during verification
 
