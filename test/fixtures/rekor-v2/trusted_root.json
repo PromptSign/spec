@@ -1,0 +1,59 @@
+{
+  "certificateAuthorities": [
+    {
+      "certChain": {
+        "certificates": [
+          {
+            "rawBytes": "MIIBjjCCATOgAwIBAgIBATAKBggqhkjOPQQDAjAtMRkwFwYDVQQKDBBwcm9tcHRzaWduIHRlc3RzMRAwDgYDVQQDDAdhY21lIHYyMCAXDTI2MDEwMTAwMDAwMFoYDzIxMjYwMTAxMDAwMDAwWjAtMRkwFwYDVQQKDBBwcm9tcHRzaWduIHRlc3RzMRAwDgYDVQQDDAdhY21lIHYyMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEPvfjK6wbUafcy6w0Ix4vBHVw7qaq+LKS58fjTS09F/XCIF51y75FDQQdeVnmFUutKZIShAwcRtt8jE7dabvv+aNCMEAwHQYDVR0OBBYEFHLjk9CKOAgWgNWj/tZN1qbr2tCEMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMAoGCCqGSM49BAMCA0kAMEYCIQDNy1T5pbLfg40dr9mdQ36ZyfKIM3/M1+Dq+/A6IrHdnwIhAPrtmN6q211r9hzHIaBFB+BCRfIBZTLr9P8bhJ1W9SV1"
+          }
+        ]
+      },
+      "subject": {
+        "commonName": "test"
+      }
+    }
+  ],
+  "ctlogs": [],
+  "mediaType": "application/vnd.dev.sigstore.trustedroot+json;version=0.1",
+  "timestampAuthorities": [
+    {
+      "certChain": {
+        "certificates": [
+          {
+            "rawBytes": "MIIB0DCCAXagAwIBAgIBAjAKBggqhkjOPQQDAjA2MRkwFwYDVQQKDBBwcm9tcHRzaWduIHRlc3RzMRkwFwYDVQQDDBBhY21lIHYyIFRTQSByb290MCAXDTI2MDEwMTAwMDAwMFoYDzIxMjYwMTAxMDAwMDAwWjAxMRkwFwYDVQQKDBBwcm9tcHRzaWduIHRlc3RzMRQwEgYDVQQDDAthY21lIHYyIFRTQTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABJof0oMYAigpgXCF7Ndx7u30mR1t48oC0yub9Dsu2WaCMGgLOMW4Qs5OpVwm1xtwOmCs1ZxpG4VCKppDcLe2DwCjeDB2MB0GA1UdDgQWBBTO8i91xWclxyuxfj3etb6vtoKefzAfBgNVHSMEGDAWgBRqk0Zw2q5xmmN6QjGMBSMmOqNrBTAMBgNVHRMBAf8EAjAAMA4GA1UdDwEB/wQEAwIGwDAWBgNVHSUBAf8EDDAKBggrBgEFBQcDCDAKBggqhkjOPQQDAgNIADBFAiAsD2bEI6ii2tKlBiQ1P4z6CYYk0Ye9sTHziYtWMdoKNwIhAKXkIATkMYIbMpjGPdpVnjFWeDkTHY6/UcBoKWGxeOkc"
+          },
+          {
+            "rawBytes": "MIIBnzCCAUWgAwIBAgIBATAKBggqhkjOPQQDAjA2MRkwFwYDVQQKDBBwcm9tcHRzaWduIHRlc3RzMRkwFwYDVQQDDBBhY21lIHYyIFRTQSByb290MCAXDTI2MDEwMTAwMDAwMFoYDzIxMjYwMTAxMDAwMDAwWjA2MRkwFwYDVQQKDBBwcm9tcHRzaWduIHRlc3RzMRkwFwYDVQQDDBBhY21lIHYyIFRTQSByb290MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEsxACaHMW+ZAMwM6ebCJ76KmCvhw+xUekGt6+IonbqvWIxZMaQUzuOv4YJoY9M5tkIc0pQZZcNbvJxsS1X/fSzqNCMEAwHQYDVR0OBBYEFGqTRnDarnGaY3pCMYwFIyY6o2sFMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMAoGCCqGSM49BAMCA0gAMEUCIQCcN3oFdz3tDx/rJ12rtGZKopJYGcgIi7JHPJ7OZbv/GwIgDr16WnJzoVCqxfZqRID8Ll5BXN+XfY43+PEzWVdTTPg="
+          }
+        ]
+      },
+      "subject": {
+        "commonName": "test TSA"
+      },
+      "uri": "https://tsa.test/api/v1/timestamp"
+    }
+  ],
+  "tlogs": [
+    {
+      "hashAlgorithm": "SHA2_256",
+      "logId": {
+        "keyId": "k+4+beUAKFhYiQCoOHPETik+YaWqsPFMk2OgMxGWPEk="
+      },
+      "publicKey": {
+        "keyDetails": "PKIX_ECDSA_P256_SHA_256",
+        "rawBytes": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEUadYCDOJjqGxg8vXNQpAmQeMbvHB4Y6XDNdoMDXyXn0BEFInErC1p8/wgWhUhphKlOaDHtrEbnNg+p2DSnqBoQ=="
+      }
+    },
+    {
+      "baseUrl": "https://rekor-eb2cf13b.test",
+      "hashAlgorithm": "SHA2_256",
+      "logId": {
+        "keyId": "Q4vRUyP3KGShzNqU/JiXcMjm9rM20bpMmJnPzhhHuw8="
+      },
+      "publicKey": {
+        "keyDetails": "PKIX_ED25519",
+        "rawBytes": "MCowBQYDK2VwAyEA6yzxO/euOl9hQWih+wknLTl3HsS4UjcngV5GbK+O4WM="
+      }
+    }
+  ]
+}

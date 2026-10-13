@@ -431,6 +431,53 @@ else
   skip "section 12 on B and output parity (no IMPL_B)"
 fi
 
+# ---- 13. Rekor v2 entries and RFC 3161 timestamps (spec/05 §3.2-3.3) -------
+# Shared fixtures in fixtures/rekor-v2 (its README states every verdict): a
+# deployment with a Rekor v2 log and a timestamp authority, installed as a
+# named root. Verdicts first, then byte-identical output across sides.
+RV="$HERE/fixtures/rekor-v2"
+
+rekor_v2() { # rekor_v2 <A|B> <command...>
+  local side="$1"; shift
+  local home="$WORK/home-rv-$side" art="$RV/artifacts" f
+  export PROMPTSIGN_HOME="$home"
+  mkdir -p "$home"
+
+  "$@" verify "$art/signed.txt" --no-pin-updates >/dev/null 2>&1
+  check "$side fails a Rekor v2 signature before its root is installed" 2 $?
+  "$@" trust add acme-v2 --trusted-root "$RV/trusted_root.json" --yes >/dev/null 2>&1
+  check "$side installs a root with a Rekor v2 log and a timestamp authority" 0 $?
+  for f in signed checkpoint-witness-first v1-with-timestamp; do
+    "$@" verify "$art/$f.txt" --no-pin-updates > "$WORK/rv-$side-$f.txt" 2>&1
+    check "$side verifies $f.txt" 0 $?
+  done
+  for f in no-timestamp timestamp-other-signature timestamp-after-certificate \
+           checkpoint-other-key proof-tampered; do
+    "$@" verify "$art/$f.txt" --no-pin-updates > "$WORK/rv-$side-$f.txt" 2>&1
+    check "$side fails $f.txt" 2 $?
+  done
+  "$@" verify "$art/signed.txt" --json --no-pin-updates > "$WORK/rv-$side-json.txt" 2>&1
+  grep -q '"integratedTime": 1790856000' "$WORK/rv-$side-json.txt"
+  check "$side reports the timestamp as the signing time" 0 $?
+  cp "$home/trust/roots/acme-v2.json" "$WORK/rv-$side-root.txt" 2>/dev/null
+}
+
+rekor_v2 A $IMPL_A
+if have_b; then
+  rekor_v2 B $IMPL_B
+  for f in signed checkpoint-witness-first v1-with-timestamp no-timestamp \
+           timestamp-other-signature timestamp-after-certificate checkpoint-other-key \
+           proof-tampered json root; do
+    if diff -u "$WORK/rv-A-$f.txt" "$WORK/rv-B-$f.txt" > "$WORK/rv-diff.txt"; then
+      PASS=$((PASS+1)); echo "ok   - Rekor v2 output byte-identical ($f)"
+    else
+      FAIL=$((FAIL+1)); echo "FAIL - Rekor v2 output differs ($f):"; cat "$WORK/rv-diff.txt"
+    fi
+  done
+else
+  skip "section 13 on B and output parity (no IMPL_B)"
+fi
+
 echo
 echo "conformance: $PASS passed, $FAIL failed, $SKIP skipped  (work dir: $WORK)"
 [ "$FAIL" = 0 ]

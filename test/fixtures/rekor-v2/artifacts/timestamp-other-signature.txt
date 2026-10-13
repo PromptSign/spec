@@ -1,0 +1,1 @@
+timestamp-other-signature.txt: signed through acme's Rekor v2 log

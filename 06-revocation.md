@@ -56,7 +56,9 @@ onto values a verifier already extracts from the bundle under test (spec/05 §4)
 
 Revoking an *identity* must not retroactively invalidate every good artifact that
 identity ever signed (D6). An `identity` entry with `from` revokes only
-signatures whose Rekor `integratedTime` is **at or after** `from`:
+signatures whose signing time (spec/05 §4 step 5: the Rekor v1
+`integratedTime`, else the earliest verified timestamp) is **at or after**
+`from`:
 
 > revoked ⇔ `identity` glob matches ∧ `issuer` glob matches (if present) ∧
 > (`from` absent ∨ `integratedTime ≥ from`)

@@ -1,6 +1,6 @@
 # PromptSign spec 05 — Keyless (Sigstore) signing and verification
 
-Status: Draft v0.1 · 2026-07-07 · extends spec/03-bundle.md
+Status: Draft v0.2 · 2026-10-12 · extends spec/03-bundle.md
 
 Keyless mode replaces long-lived local Ed25519 keys with an **ephemeral key**
 certified by a Fulcio-style certificate authority for ~10 minutes against an
@@ -34,6 +34,35 @@ keyless bundle differs in the `signer` block and adds a `transparency` block:
 }
 ```
 
+A signer that logs to a **Rekor v2** log staples an inclusion proof in place
+of the signed entry timestamp, and RFC 3161 timestamps that date the signature:
+
+```json
+{
+  "schema": "promptsign/bundle/v1",
+  "envelope": { "payloadType": "…", "payload": "…", "signatures": [{ "keyid": "…", "sig": "…" }] },
+  "signer": { "scheme": "keyless", "identity": "…", "issuer": "…", "certChain": ["…"] },
+  "transparency": {
+    "logId": "<hex log id (spec/07 §1)>",
+    "logIndex": 4026478,
+    "body": "<b64 canonicalized Rekor entry body (kind: hashedrekord, apiVersion 0.0.2)>",
+    "inclusionProof": {
+      "treeSize": 4026479,
+      "rootHash": "<b64 RFC 6962 root hash>",
+      "hashes": ["<b64 sibling hash>", "…"],
+      "checkpoint": "<signed note: origin, tree size, root hash, then signatures>"
+    }
+  },
+  "timestamps": ["<b64 DER RFC 3161 TimeStampResp over the envelope signature>"]
+}
+```
+
+- `transparency` holds `signedEntryTimestamp` with `integratedTime` (Rekor v1)
+  or `inclusionProof` (Rekor v2). A verifier given both uses the signed entry
+  timestamp.
+- `timestamps` is optional and holds at most 32 entries. A Rekor v2 log signs
+  no time, so a v2 signature needs at least one timestamp that verifies, or it
+  fails (§4 step 5).
 - `certChain` is leaf-first DER, base64 (standard alphabet). The root MAY be
   omitted; it comes from the verifier's trust store.
 - `signer.identity` / `signer.issuer` are **display hints only**. The
@@ -48,7 +77,8 @@ keyless bundle differs in the `signer` block and adds a `transparency` block:
 ## 2. Certificate profile (Fulcio)
 
 - Leaf key algorithms: **Ed25519** (what `promptsign` generates) or
-  **ECDSA P-256** (interop with cosign-produced material).
+  **ECDSA P-256** (interop with cosign-produced material). Rekor v2 rejects
+  signatures that are not prehashed, so a signer logging there uses ECDSA.
 - Identity: first SubjectAltName (SAN) of type `rfc822Name` (email) or
   `uniformResourceIdentifier` (CI workflows). Exactly one MUST be present.
 - Issuer: Fulcio extension `1.3.6.1.4.1.57264.1.8` (DER UTF8String), with
@@ -56,7 +86,9 @@ keyless bundle differs in the `signer` block and adds a `transparency` block:
 - Chain signatures supported: ECDSA P-256/SHA-256, ECDSA P-384/SHA-384 (with
   cross combinations), Ed25519.
 
-## 3. Transparency entry (Rekor `dsse` kind, apiVersion 0.0.1)
+## 3. Transparency entries
+
+### 3.1 Rekor v1: `dsse` kind, apiVersion 0.0.1
 
 `transparency.body` is the base64 canonical entry as returned by the log:
 
@@ -70,6 +102,69 @@ keyless bundle differs in the `signer` block and adds a `transparency` block:
 The **signed entry timestamp (SET)** is an ECDSA-P256/DER signature by the log
 over the compact JSON `{"body":…,"integratedTime":…,"logID":…,"logIndex":…}`
 (keys in that order — they are already lexicographic).
+
+### 3.2 Rekor v2: `hashedrekord` kind, apiVersion 0.0.2
+
+A Rekor v2 log records the hash of the signed content, the signature and the
+signing certificate:
+
+```json
+{ "apiVersion": "0.0.2", "kind": "hashedrekord", "spec": { "hashedRekordV002": {
+    "data": { "algorithm": "SHA2_256", "digest": "<b64 SHA-256 of PAE(payloadType, payload)>" },
+    "signature": {
+      "content": "<b64, the same bytes as the envelope sig>",
+      "verifier": { "keyDetails": "PKIX_ECDSA_P256_SHA_256",
+                    "x509Certificate": { "rawBytes": "<b64 DER leaf>" } } } } } }
+```
+
+The log keeps its entries in an RFC 6962 Merkle tree. An entry's leaf hash is
+SHA-256 of a zero byte followed by the decoded `body`; `inclusionProof.hashes`
+is its audit path, which verifiers check as RFC 9162 §2.1.3.2 describes.
+
+The checkpoint is a C2SP signed note
+([tlog-checkpoint](https://c2sp.org/tlog-checkpoint),
+[signed-note](https://c2sp.org/signed-note)):
+
+```
+<origin>
+<tree size, decimal>
+<base64 root hash>
+<optional extension lines>
+
+— <origin> <base64 of key hint followed by signature>
+```
+
+- The origin is the host of the log's `baseUrl` (spec/07 §1).
+- The key hint is the first four bytes of the log id.
+- The log signs every line before the blank line, each with its newline. An
+  Ed25519 log signs that text; an ECDSA P-256 log signs its SHA-256 and
+  DER-encodes the signature.
+- Verifiers ignore a signature line whose name or key hint is not the log's,
+  such as a witness cosignature. A line from the log that does not verify fails
+  the checkpoint, and so does a checkpoint with no line from the log.
+
+### 3.3 RFC 3161 timestamps
+
+Each entry of `timestamps` is a DER `TimeStampResp` (RFC 3161 §2.4.2), whose
+token is CMS `SignedData` over a `TSTInfo`. A timestamp verifies against a
+timestamp authority of the root (spec/07 §1) when:
+
+1. Its status is granted (0) or granted with modifications (1).
+2. `TSTInfo.messageImprint` is the hash, under its stated algorithm (SHA-256,
+   SHA-384 or SHA-512), of the decoded envelope signature.
+3. The token has exactly one signer. Its signed attributes name
+   `id-ct-TSTInfo` as the content type and carry the digest of the
+   encapsulated `TSTInfo`, and its signature over them verifies with the
+   timestamping certificate's key (ECDSA, RSA PKCS#1 v1.5 or Ed25519).
+4. The timestamping certificate, embedded in the token or listed by the
+   authority, matches the signer identifier, has the `timeStamping` extended
+   key usage, and chains through the authority's certificates to the
+   authority's last certificate. Each issuing certificate on that path must be
+   a CA, and every certificate must be valid at `genTime`.
+5. `genTime` falls inside the authority's `validFor` (spec/07 §4).
+
+The verified time is `genTime` in whole seconds. A timestamp that fails a check
+gives no time, and does not by itself fail the signature.
 
 ## 4. Verification algorithm (offline)
 
@@ -85,20 +180,35 @@ spec/07 §3.1 adds that root's validity windows:
 2. **Chain**: `certChain[i]` must be signed by `certChain[i+1]`; the last chain
    cert must be signed by (or byte-equal to) a certificate authority of a
    keyless root.
-3. **SET**: recompute the canonical entry JSON from `transparency.{body,
-   integratedTime, logId, logIndex}` and verify `signedEntryTimestamp` with
-   the log key of that root whose `logId` (hex SHA-256 of its SPKI DER)
-   equals the entry's `logId`.
-4. **Entry binding**: decode `body`; `kind` MUST be `dsse`;
-   `spec.payloadHash` MUST equal SHA-256 of the decoded envelope payload;
-   `spec.signatures[]` MUST contain the envelope's signature value.
-   (`envelopeHash` is NOT recomputed — it would require JCS canonicalization of
-   the whole envelope and adds nothing: SET→body→payloadHash+signature→PAE is
-   already a complete chain of custody.)
-5. **Time validity**: `integratedTime` MUST fall within the leaf certificate's
-   `[notBefore, notAfter]` — i.e. the certificate was valid *when the log saw
-   the signature*, which is what makes 10-minute certificates verifiable
-   forever.
+3. **Log proof**: the log of that root whose id (spec/07 §1) equals the
+   entry's `logId` must vouch for the entry.
+   - Rekor v1: recompute the canonical entry JSON from `transparency.{body,
+     integratedTime, logId, logIndex}` and verify `signedEntryTimestamp` with
+     the log's P-256 key.
+   - Rekor v2: verify `inclusionProof.checkpoint` with the log's key and
+     origin (§3.2). Its tree size and root hash must equal `treeSize` and
+     `rootHash`, and `hashes` must lead from the leaf hash of the decoded
+     `body` at `logIndex` to that root.
+4. **Entry binding**: decode `body`.
+   - Rekor v1: `kind` MUST be `dsse`; `spec.payloadHash` MUST equal SHA-256
+     of the decoded envelope payload; `spec.signatures[]` MUST contain the
+     envelope's signature value. (`envelopeHash` is NOT recomputed — it would
+     require JCS canonicalization of the whole envelope and adds nothing:
+     SET→body→payloadHash+signature→PAE is already a complete chain of
+     custody.)
+   - Rekor v2: `kind` MUST be `hashedrekord` and `apiVersion` `0.0.2`;
+     `data.digest` MUST equal the hash of PAE(payloadType, payload) under
+     `data.algorithm`; `signature.content` MUST equal the envelope signature
+     bytes; `signature.verifier.x509Certificate.rawBytes` MUST equal the leaf
+     certificate.
+5. **Time validity**: the signing times are the Rekor v1 `integratedTime`,
+   which the SET signs, and the `genTime` of every timestamp that verifies
+   against the root's timestamp authorities (§3.3). There MUST be at least
+   one. Each MUST fall within the leaf certificate's `[notBefore, notAfter]`:
+   the certificate was valid *when the signer used it*, and that check keeps
+   10-minute certificates verifiable after they expire. A result's
+   `integratedTime` is the Rekor v1 `integratedTime` when the entry has one,
+   else the earliest verified timestamp.
 6. **Identity**: extract SAN identity + Fulcio issuer from the leaf; fail if
    the bundle's `signer.identity`/`signer.issuer` hints disagree.
 7. Proceed to integrity + policy exactly as spec/04, with `identity` and

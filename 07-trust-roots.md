@@ -22,17 +22,22 @@ Verifiers read these fields and ignore the rest:
 | `certificateAuthorities[].certChain.certificates[].rawBytes` | Base64 DER certificates, the CA itself and any intermediates. Any of them may terminate a signature's chain. |
 | `certificateAuthorities[].validFor` | Optional `{ "start": RFC 3339, "end": RFC 3339 }`. Absent `end` means open-ended (§4). |
 | `tlogs[]` | One entry per transparency log key. |
+| `tlogs[].baseUrl` | The log's URL. Its host is the origin a Rekor v2 checkpoint names (spec/05 §3.2). |
 | `tlogs[].publicKey.rawBytes` | Base64 SPKI DER of the log key. |
-| `tlogs[].publicKey.keyDetails` | `PKIX_ECDSA_P256_SHA_256`. Verifiers skip entries with other key types. |
+| `tlogs[].publicKey.keyDetails` | `PKIX_ECDSA_P256_SHA_256` or `PKIX_ED25519`. Verifiers skip entries with other key types. |
 | `tlogs[].publicKey.validFor` | Optional window, as for CAs. |
-| `tlogs[].logId.keyId` | Base64 log id. Verifiers recompute it as SHA-256 of the SPKI DER and skip an entry whose stated id disagrees. |
+| `tlogs[].logId.keyId` | Base64 log id. For a P-256 key it is SHA-256 of the SPKI DER. For an Ed25519 key it is the C2SP signed-note key hash: SHA-256 of the origin, a newline, the byte `0x01` and the 32-byte key. Verifiers recompute it and skip an entry whose stated id disagrees, and skip an Ed25519 entry without `baseUrl`. |
+| `timestampAuthorities[]` | One entry per RFC 3161 timestamp authority (spec/05 §3.3). |
+| `timestampAuthorities[].certChain.certificates[].rawBytes` | Base64 DER certificates: the timestamping certificate first, then any intermediates, the authority's anchor last. |
+| `timestampAuthorities[].validFor` | Optional window for the timestamps' `genTime`, as for CAs. |
 
-`ctlogs` and `timestampAuthorities` are reserved. Verifiers ignore them.
+`ctlogs` is reserved. Verifiers ignore it.
 
 A root with at least one usable log is a **keyless root**: signatures under it
 carry a transparency entry (spec/05). A root with no usable log is a
 **certificate root**: verifiers check signatures under it against the CA alone,
-at the current time (§3.2). A certificate root never verifies a keyless
+at the time a timestamp from the root's authorities gives, else at the current
+time (§3.2). A certificate root never verifies a keyless
 PromptSign signature, and a keyless root never verifies a certificate-mode one.
 
 A root's **fingerprint** is the hex SHA-256 of its anchor certificate's DER.
@@ -47,7 +52,12 @@ The registry is every root a verifier accepts, in this order:
 1. **`sigstore-public`**, the built-in root: `fulcio.pem` and `rekor.pub` in the
    trust directory (`$PROMPTSIGN_TRUST_DIR`, else `$PROMPTSIGN_HOME/trust`).
    `rekor.pub` may hold several keys, oldest first, so a log key rotation keeps
-   older signatures valid. It has no `validFor`.
+   older signatures valid. The pair has no `validFor`. If the same directory
+   holds `trusted_root.json`, the public Sigstore root document, the verifier
+   joins the two into the built-in root: the document's CAs, logs and timestamp
+   authorities first, then the pair's certificates and any log the document
+   lacks. The Rekor v2 logs and the timestamp authority come from the document.
+   Either source works on its own.
 2. **Named roots**: `$PROMPTSIGN_HOME/trust/roots/<name>.json`, by name.
 3. **Bundle roots**: the roots of each installed trust bundle (§5.5), named
    `<bundle>/<root>`.
@@ -89,9 +99,10 @@ For a signature with a transparency entry (spec/05 §4):
    signature's **anchor root**.
 2. The entry's `logId` must name a log of the anchor root. The verifier does
    not consult the logs of other roots.
-3. `integratedTime` must fall inside the CA entry's `validFor` and the log
-   entry's `validFor` (§4), in addition to the leaf certificate's own validity
-   (spec/05 §4 step 5).
+3. Every signing time (spec/05 §4 step 5) must fall inside the CA entry's
+   `validFor` and the log entry's `validFor` (§4), in addition to the leaf
+   certificate's own validity. The anchor root's timestamp authorities date
+   the signature; no other root's do.
 
 ### 3.2 Certificate mode
 
@@ -99,8 +110,14 @@ For a signature that carries a certificate chain but no transparency entry,
 such as an OpenSSF Model Signing bundle signed with a CA:
 
 1. The chain must end at a CA of a **certificate** root.
-2. Every certificate is checked at the current time, and the current time
-   must fall inside the CA entry's `validFor`.
+2. The signing times are the `genTime` of each RFC 3161 timestamp in the
+   bundle that verifies against that root's timestamp authorities (spec/05
+   §3.3); a Sigstore bundle carries them in
+   `verificationMaterial.timestampVerificationData.rfc3161Timestamps`. With
+   none, the verifier uses the current time. It checks every certificate at
+   each signing time, and each time must fall inside the CA entry's
+   `validFor`. A timestamp lets a signature keep verifying after its
+   certificate expires.
 3. Each issuing certificate must be a CA (`basicConstraints` CA:TRUE), its
    `pathLenConstraint` must hold, and if it states key usages they must include
    `keyCertSign`. If the leaf states key usages they must include
@@ -113,20 +130,24 @@ such as an OpenSSF Model Signing bundle signed with a CA:
 
 ### 3.3 Result
 
-The verification result carries `root`: the anchor root's name. A policy rule
+The verification result carries `root`: the anchor root's name, and for a
+timestamped certificate-mode signature, `integratedTime`: the earliest
+verified timestamp. A policy rule
 may require it with `trust_root` (spec/04), a glob matched against that name,
 so `acme/*` accepts every root of the bundle `acme`.
 
 ## 4. Validity windows
 
-A `validFor` window is `[start, end)`. `start` is required, `end` is optional.
-A CA or log entry with no `validFor` is valid at every time.
+A `validFor` window is `[start, end]`, closed at both ends like Sigstore's
+`TimeRange`. `start` is required, `end` is optional. A CA, log or timestamp
+authority entry with no `validFor` is valid at every time.
 
 The window bounds the time the signer made the signature. A publisher retires
 a CA by ending its window, and signatures made before that end keep verifying.
-For a keyless signature, the signing time is the log's `integratedTime`. A
-certificate-mode signature has no witnessed signing time, so the verifier
-checks it at the current time.
+For a keyless signature, the signing times are those of spec/05 §4 step 5:
+the Rekor v1 `integratedTime` and the verified timestamps. The verifier checks
+a certificate-mode signature at its verified timestamps, or at the current time
+when it has none.
 
 When the same certificate appears in several CA entries, a chain that ends at
 it is accepted if any one of those entries' windows holds.
@@ -260,3 +281,14 @@ fixtures in [`test/fixtures/trust-roots`](test/fixtures/trust-roots):
   not list, and rejects an update with a lower version.
 - A stale bundle's roots verify with a warning under the default policy, and
   fail under `on_trust_bundle_stale: "fail"`.
+
+It MUST also reach these verdicts on the fixtures in
+[`test/fixtures/rekor-v2`](test/fixtures/rekor-v2):
+
+- A signature logged in a Rekor v2 log verifies with its timestamp, and fails
+  without one, with a timestamp over another signature, and with a timestamp
+  outside the certificate's validity.
+- A checkpoint signed by another key fails; one with an unknown witness line
+  first verifies. A tampered inclusion proof fails.
+- A Rekor v1 signature with an added timestamp verifies with its own
+  `integratedTime`.
