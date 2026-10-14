@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # PromptSign conformance suite — wire-format agreement between two independent
-# implementations of spec/01–05 and 07.
+# implementations of spec/01–05, 07 and 08.
 #
 # One implementation is a spec of one. This suite is how you check that a second
 # one agrees: bundles signed by either verify in the other, canonical digests
@@ -561,6 +561,70 @@ else
     done
   else
     skip "section 14 on B and output parity (no IMPL_B)"
+  fi
+fi
+
+# ---- 15. Decision log (spec/08) --------------------------------------------
+# A managed decision_log writes one record per verification to
+# <managed>/log/decisions-<user>.jsonl, --decision-log adds a file of the
+# command's own, and a project policy cannot turn the log on. Both sides must
+# write the same records apart from the time and the verifier's name.
+decision_log() { # decision_log <A|B> <command...>
+  local side="$1"; shift
+  local base="$WORK/dl-$side" art="$TR/artifacts"
+  local m="$base/managed" home="$base/home" proj="$base/project"
+  local log="$m/log/decisions-conf.jsonl"
+  mkdir -p "$m" "$home" "$proj"
+  printf '# rules\n' > "$proj/CLAUDE.md"
+  export PROMPTSIGN_HOME="$home" PROMPTSIGN_MANAGED_DIR="$m" USER=conf USERNAME=conf
+
+  mkdir -p "$proj/.promptsign"
+  printf '{%s,"default":"warn","rules":[],"decision_log":true}\n' "$POLICY_V1" > "$proj/.promptsign/policy.json"
+  (cd "$proj" && "$@" verify CLAUDE.md --no-pin-updates) >/dev/null 2>&1
+  [ ! -e "$m/log" ] && [ ! -e "$home/log" ]
+  check "$side ignores decision_log in a project policy" 0 $?
+  rm -r "$proj/.promptsign"
+
+  "$@" trust add acme "$TR/bundles/acme-v1/trust-bundle.json" --signer "$TR_SIGNER" --yes --managed >/dev/null 2>&1
+  printf '{%s,"default":"warn","rules":[{"pattern":"CLAUDE","action":"enforce"}],"decision_log":true}\n' \
+    "$POLICY_V1" > "$m/managed-policy.json"
+  "$@" verify "$art/prod-signed.txt" --no-pin-updates >/dev/null 2>&1
+  check "$side verifies with the managed log on" 0 $?
+  (cd "$proj" && "$@" verify-tree . --no-pin-updates --decision-log "$base/own.jsonl") >/dev/null 2>&1
+  check "$side fails the unsigned file the managed rule enforces" 2 $?
+  [ "$(wc -l < "$log")" -eq 2 ] && [ "$(wc -l < "$base/own.jsonl")" -eq 1 ]
+  check "$side writes one record per verification to every log" 0 $?
+
+  # Drop what may differ between implementations, keep the rest in order.
+  jsonrun '
+import json, sys
+for l in open(sys.argv[1], encoding="utf-8"):
+    r = json.loads(l); r.pop("time"); r.pop("verifier")
+    print(json.dumps(r, separators=(",", ":"), ensure_ascii=False))' '
+const fs = require("fs");
+for (const l of fs.readFileSync(process.argv[1], "utf8").split("\n").filter(Boolean)) {
+  const r = JSON.parse(l); delete r.time; delete r.verifier;
+  console.log(JSON.stringify(r));
+}' "$log" > "$WORK/dl-$side-records.txt"
+  [ -s "$WORK/dl-$side-records.txt" ]
+  check "$side decision log parses as JSON lines" 0 $?
+  unset PROMPTSIGN_MANAGED_DIR
+}
+
+if [ -e "$MANAGED_PLATFORM_DIR" ]; then
+  skip "section 15 decision log ($MANAGED_PLATFORM_DIR exists)"
+else
+  decision_log A $IMPL_A
+  if have_b; then
+    decision_log B $IMPL_B
+    if diff -u <(sed 's|dl-A|dl-X|g' "$WORK/dl-A-records.txt") \
+               <(sed 's|dl-B|dl-X|g' "$WORK/dl-B-records.txt") > "$WORK/dl-diff.txt"; then
+      PASS=$((PASS+1)); echo "ok   - decision log records identical"
+    else
+      FAIL=$((FAIL+1)); echo "FAIL - decision log records differ:"; cat "$WORK/dl-diff.txt"
+    fi
+  else
+    skip "section 15 on B and record parity (no IMPL_B)"
   fi
 fi
 

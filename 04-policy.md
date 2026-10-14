@@ -128,6 +128,10 @@ it sets `revocation_feed`, else from the user policy. [Spec 07](07-trust-roots.m
 §5.6 specifies `on_trust_bundle_stale`; `fail` in the managed or the user
 policy wins.
 
+[Spec 08](08-decision-log.md) specifies `decision_log`, `decision_log_dir`
+and `decision_log_max_bytes`. Verifiers read them from the managed and the
+user policy, and each of the two that sets `decision_log: true` gets a log.
+
 `require_attestations` (e.g. `promptsign/scan/v1`, `promptsign/review/v1`) is
 reserved; no spec in this series defines it yet. Enterprise roots are
 `trust_root` (spec/07).
