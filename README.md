@@ -195,6 +195,8 @@ An implementation is a conforming **verifier** if, for every bundle, it:
 7. Consults the revocation feed when policy configures one, accepting a feed
    only from the policy-pinned signer and degrading per `on_feed_stale`
    otherwise ([06 §4](06-revocation.md)).
+8. Evaluates the machine's managed policy first, and lets the user's and the
+   project's policies only tighten it ([04](04-policy.md)).
 
 Steps 1–6 MUST require no network access. Verification that can be *down* is
 not verification, and a verifier that phones home is a tracking beacon.
@@ -206,7 +208,8 @@ two implementations: bundles signed by either verify in the other, canonical
 digests match byte for byte, both reach the same verdict under the same policy,
 both fail closed on an unknown signature scheme, and both reach the
 [07 §6](07-trust-roots.md#6-conformance) verdicts on the shared trust-root
-fixtures in [`test/fixtures/trust-roots`](test/fixtures/trust-roots).
+fixtures in [`test/fixtures/trust-roots`](test/fixtures/trust-roots),
+including those for a managed directory.
 
 ```bash
 IMPL_A="node …/promptsign-node/src/index.mjs" \

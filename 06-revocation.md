@@ -111,16 +111,23 @@ means revocation is not consulted (no behavior change):
 - `on_feed_stale` — `"warn"` (default) or `"fail"`: how verification degrades when
   the feed is stale or missing (§4).
 
+A managed policy (spec/04) sets these keys for every user on a machine. When
+it sets `revocation_feed`, verifiers read all five keys from it and ignore the
+user's. Otherwise they read them from the user policy.
+
 ## 4. Verification algorithm (offline)
 
 Runs after signature + integrity + policy (spec/04 §4), only when
 `policy.revocation_feed` is set and this is not a signer self-check:
 
-1. Load the cached feed bundle (`$PROMPTSIGN_REVOCATION_FILE` or
-   `~/.promptsign/revocation.json`). Missing ⇒ **unavailable**.
-2. Verify it as a keyless bundle (spec/05 §4, offline) and confirm its
+1. Load the cached feed bundles: the managed copy `<managed>/revocation.json`
+   (spec/04) and the user's (`$PROMPTSIGN_REVOCATION_FILE` or
+   `~/.promptsign/revocation.json`). Neither present ⇒ **unavailable**.
+2. Verify each as a keyless bundle (spec/05 §4, offline) and confirm its
    `payloadType`, `schema`, and signer identity/issuer against policy (§2).
-   Any failure ⇒ **unavailable** (an unverifiable feed is never trusted).
+   Use the copy that verifies with the latest `generatedAt`, so an older copy
+   cannot hide a newer revocation. No copy verifies ⇒ **unavailable** (an
+   unverifiable feed is never trusted).
 3. Evaluate the bundle under test against every entry (§1.1). A match ⇒
    **revoked**: verification fails (`error`) with the entry `reason`, regardless of
    feed freshness.
@@ -141,3 +148,4 @@ a `promptsign/revocation/v1` document, and signs it keyless (spec/05 §6) with t
 revocation `payloadType`. Serving the resulting bundle from a CDN at the
 `revocation_feed` URL is an operations concern outside this spec. Consumers refresh
 their cache with `promptsign revoke fetch` (opportunistic; the only online step).
+An administrator refreshes the managed copy with `promptsign revoke fetch --managed`.

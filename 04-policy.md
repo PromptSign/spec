@@ -3,28 +3,79 @@
 A valid signature only proves *someone* signed it. Policy decides **which
 identities may sign which names**, and what happens when they didn't.
 
-## Resolution order
+## Layers
+
+A verifier evaluates up to three policies on each artifact: the machine's
+managed policy, the user's, and the project's.
 
 The **user policy** is the first of:
 
 1. `--policy <path>` CLI flag
-2. `PROMPTSIGN_POLICY` env var
+2. `PROMPTSIGN_POLICY` env var, unless the managed policy sets `lock_env`
 3. `~/.promptsign/policy.json` (or `$PROMPTSIGN_HOME/policy.json`)
-4. Built-in default: `{ "default": "warn", "rules": [{ "pattern": "*", "action": "warn", "tofu": true }] }`
+4. Built-in default: `{ "default": "warn", "rules": [{ "pattern": "*", "action": "warn", "tofu": true }] }`,
+   on a machine without a managed policy
 
-A **project policy**, `<project>/.promptsign/policy.json`, is evaluated *in
-addition* to the user policy, never instead of it. The project directory is
-where untrusted instruction files come from, so its policy may only tighten:
+The **base** layer is the managed policy (next section) when the machine has
+one, else the user policy. Over a managed base, the user policy applies only
+when the user has a policy file, and it tightens the base the way a project
+policy does.
 
-- Verifiers evaluate the user policy, then the project policy on the same
-  input. Findings from both are reported (project findings prefixed
-  `project policy: `) and the worse action wins.
-- A project policy therefore cannot lower an action, switch checks `off`, or
-  trust an identity, key or root the user policy does not accept.
-- A project policy never checks or writes TOFU pins; pins belong to the user.
-- Revocation settings (`revocation_feed` and related keys) are read from the
-  user policy only.
-- A project policy that does not parse is an error, like a user policy.
+Verifiers evaluate a **project policy**, `<project>/.promptsign/policy.json`,
+*in addition* to the others, never instead of them. Untrusted instruction files
+come from the project directory, so its policy may only tighten.
+
+Tightening layers follow these rules:
+
+- Verifiers evaluate the base, then the user policy over a managed base, then
+  the project policy, all on the same input. They report every finding, the
+  user layer's prefixed `user policy: ` and the project's `project policy: `,
+  and the worst action wins.
+- A tightening layer therefore cannot lower an action, switch checks `off`, or
+  trust an identity, key or root the base does not accept.
+- A broken signature, or a marker in a context-injected file (spec/03), only
+  warns when the matching action of every layer is `off`.
+- TOFU pins belong to the user. The base checks them, or the user layer when
+  the base's matching rule sets no `tofu`. A project policy never checks or
+  writes them.
+- A project policy never sets revocation settings (`revocation_feed` and
+  related keys), `on_trust_bundle_stale` or `strict`.
+- A policy at any layer that does not parse is an error.
+
+## Managed policy
+
+An administrator sets a managed policy for every user on a machine, as
+managed settings do for Claude Code. It lives in the managed directory, which
+users cannot write:
+
+| Platform | Managed directory |
+|---|---|
+| Windows | `C:\ProgramData\PromptSign` |
+| macOS | `/Library/Application Support/PromptSign` |
+| Linux and other Unix | `/etc/promptsign` |
+
+The directory holds:
+
+- `managed-policy.json`: a `promptsign/policy/v1` document, the base layer.
+- `trust/`: managed roots and trust bundles ([Spec 07](07-trust-roots.md) §2.4).
+- `revocation.json`: a cached revocation feed ([Spec 06](06-revocation.md) §4).
+
+Verifiers take the location from this table and not from an environment
+variable, because a project can set variables for the hooks it runs.
+`$PROMPTSIGN_MANAGED_DIR` replaces the directory only where the platform
+directory does not exist, for tests and trials.
+
+The managed policy accepts three more keys:
+
+| Key | Effect |
+|---|---|
+| `strict` | `true`: hooks fail closed, as with `PROMPTSIGN_STRICT=1`. A user policy may set it too. The environment cannot turn it off. |
+| `lock_env` | `true`: verifiers ignore `PROMPTSIGN_POLICY`, `PROMPTSIGN_HOME`, `PROMPTSIGN_TRUST_DIR` and `PROMPTSIGN_REVOCATION_FILE` and use the defaults under the user's home. A managed policy that does not parse counts as `true`. |
+| `user_roots` | `false`: the registry leaves out the roots and trust bundles the user added ([Spec 07](07-trust-roots.md) §2.4). |
+
+Verifiers ignore `lock_env` and `user_roots` in a user or project policy.
+`promptsign policy show` prints each layer with the file it came from, then
+the `strict`, `lock_env` and `user_roots` settings in effect.
 
 ## Format
 
@@ -72,9 +123,10 @@ where untrusted instruction files come from, so its policy may only tighten:
 
 `revocation_feed`, `revocation_feed_identity`, `revocation_feed_issuer`,
 `max_feed_staleness`, and `on_feed_stale` are specified in
-[Spec 06](06-revocation.md). `on_trust_bundle_stale` is specified in
-[Spec 07](07-trust-roots.md) §5.6. All of them are read from the user policy
-only.
+[Spec 06](06-revocation.md). Verifiers read them from the managed policy when
+it sets `revocation_feed`, else from the user policy. [Spec 07](07-trust-roots.md)
+§5.6 specifies `on_trust_bundle_stale`; `fail` in the managed or the user
+policy wins.
 
 `require_attestations` (e.g. `promptsign/scan/v1`, `promptsign/review/v1`) is
 reserved; no spec in this series defines it yet. Enterprise roots are

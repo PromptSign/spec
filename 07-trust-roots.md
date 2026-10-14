@@ -58,9 +58,17 @@ The registry is every root a verifier accepts, in this order:
    authorities first, then the pair's certificates and any log the document
    lacks. The Rekor v2 logs and the timestamp authority come from the document.
    Either source works on its own. `trust fetch` writes all three (§2.3).
-2. **Named roots**: `$PROMPTSIGN_HOME/trust/roots/<name>.json`, by name.
-3. **Bundle roots**: the roots of each installed trust bundle (§5.5), named
+   If the managed trust directory (§2.4) holds these files, the verifier
+   reads the built-in root from there instead.
+2. **Managed named roots**: `<managed>/trust/roots/<name>.json`, by name.
+3. **Managed bundle roots**: the roots of each trust bundle installed in
+   `<managed>/trust/bundles/`, named `<bundle>/<root>`.
+4. **Named roots**: `$PROMPTSIGN_HOME/trust/roots/<name>.json`, by name.
+5. **Bundle roots**: the roots of each installed trust bundle (§5.5), named
    `<bundle>/<root>`.
+
+Items 4 and 5 are the roots the user added. A managed `user_roots: false`
+leaves them out (§2.4).
 
 Named and bundle roots never follow `$PROMPTSIGN_TRUST_DIR`. A verifier never
 reads a root from the directory being verified, and a project policy (spec/04)
@@ -89,6 +97,11 @@ version, expiry and every root) and asks the user to confirm. Non-interactive
 use takes `--yes`. Adding refuses a name already in use and a root already
 trusted under another name.
 
+With `--managed`, `trust add`, `trust rm` and `trust fetch` act on the managed
+trust directory (§2.4) instead of the user's. They need the rights an
+administrator has over that directory. `trust fetch --managed` writes the
+built-in root files there too.
+
 ### 2.3 Fetching the built-in root
 
 `trust fetch` writes the built-in root into the trust directory. It takes
@@ -116,6 +129,23 @@ check, because Sigstore signs them and keeps retired entries with a closed
 window. It fetches and checks all four files before it writes any. If you set
 `$PROMPTSIGN_FULCIO_URL` or `$PROMPTSIGN_REKOR_URL`, it skips the TUF step
 unless you also set `$PROMPTSIGN_TUF_URL`.
+
+### 2.4 Managed trust
+
+The managed directory (spec/04) holds a trust directory, `<managed>/trust/`,
+laid out like the user's: `fulcio.pem`, `rekor.pub` and `trusted_root.json`
+for the built-in root, `roots/` and `bundles/`. Every user on the machine
+trusts its roots.
+
+- When it holds the built-in root files, the verifier reads `sigstore-public`
+  from there and ignores `$PROMPTSIGN_TRUST_DIR` and the user's copy.
+- A verifier skips a user root or bundle that has the name of a managed root
+  or bundle, and `trust list` reports it. A policy rule that names a managed
+  root then matches that root alone. `trust add` refuses such a name.
+- Under a managed `user_roots: false` the registry holds the built-in root and
+  the managed roots only.
+- Verifiers check a managed bundle's signature against the built-in root, as
+  for a user bundle (§5.5). A managed bundle goes stale the same way (§5.6).
 
 ## 3. Choosing a root during verification
 
@@ -272,7 +302,8 @@ confirmation needed when an installed signer signed it).
 
 ### 5.5 Storage
 
-An installed bundle lives in `$PROMPTSIGN_HOME/trust/bundles/<name>/`:
+An installed bundle lives in `$PROMPTSIGN_HOME/trust/bundles/<name>/`, or in
+`<managed>/trust/bundles/<name>/` for a managed one (§2.4):
 `trust-bundle.json` and `trust-bundle.json.psig.json` exactly as fetched, plus
 `source.json` (`{ "url": … }`, absent for a file install). A verifier
 re-verifies the stored bundle's signature (§5.2 steps 1 to 3, against its own
@@ -283,15 +314,15 @@ error. Writes replace the directory atomically.
 
 A bundle past its `expires` is **stale**. Its roots still verify signatures, so
 one missed fetch does not break signed artifacts. A signature anchored at
-a stale bundle's root carries a finding, and the user policy (spec/04) decides
-its weight:
+a stale bundle's root carries a finding, and the managed and user policies
+(spec/04) decide its weight:
 
 ```json
 { "on_trust_bundle_stale": "warn" }
 ```
 
-`warn` (the default) adds a warning; `fail` fails. Only the user policy can set
-it; a project policy cannot.
+`warn` (the default) adds a warning; `fail` fails. `fail` in the managed or the
+user policy wins. A project policy cannot set it.
 
 ## 6. Conformance
 
@@ -320,3 +351,16 @@ It MUST also reach these verdicts on the fixtures in
   first verifies. A tampered inclusion proof fails.
 - A Rekor v1 signature with an added timestamp verifies with its own
   `integratedTime`.
+
+With the same trust-root fixtures and a managed directory (spec/04, §2.4), it
+MUST reach these verdicts:
+
+- A signature under a bundle installed in the managed trust directory verifies
+  with nothing in the user's home, and `trust add` refuses a user bundle of
+  the same name.
+- An unsigned file fails under a managed `"default": "enforce"` when the user
+  and project policies say `off`.
+- A user policy over a managed one tightens it, and its findings carry the
+  prefix `user policy: `.
+- A user bundle stops verifying under a managed `user_roots: false`, and under
+  `lock_env` when it sits in `$PROMPTSIGN_HOME`.

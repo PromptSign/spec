@@ -478,6 +478,92 @@ else
   skip "section 13 on B and output parity (no IMPL_B)"
 fi
 
+# ---- 14. Managed policy and trust (spec/04, spec/07 §2.4) ------------------
+# An administrator's directory, stood in for by PROMPTSIGN_MANAGED_DIR: its
+# policy is the base the user's and the project's can only tighten, its bundle
+# is trusted by every user, user_roots: false drops the user's own bundle, and
+# lock_env stops PROMPTSIGN_HOME from applying. The variable only works where
+# the platform directory is absent, so the section skips on a managed machine.
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) MANAGED_PLATFORM_DIR="/c/ProgramData/PromptSign" ;;
+  Darwin) MANAGED_PLATFORM_DIR="/Library/Application Support/PromptSign" ;;
+  *) MANAGED_PLATFORM_DIR="/etc/promptsign" ;;
+esac
+POLICY_V1='"schema":"promptsign/policy/v1"'
+
+managed_layer() { # managed_layer <A|B> <command...>
+  local side="$1"; shift
+  local base="$WORK/mg-$side" art="$TR/artifacts"
+  local m="$base/managed" home="$base/home" proj="$base/project"
+  mkdir -p "$m" "$home" "$proj" "$base/os-home"
+  printf '# rules\n' > "$proj/CLAUDE.md"
+  export PROMPTSIGN_HOME="$home" PROMPTSIGN_MANAGED_DIR="$m"
+
+  "$@" trust add acme "$TR/bundles/acme-v1/trust-bundle.json" --signer "$TR_SIGNER" --yes --managed >/dev/null 2>&1
+  check "$side installs acme v1 into the managed directory" 0 $?
+  [ -f "$m/trust/bundles/acme/trust-bundle.json" ]
+  check "$side stores the managed bundle under <managed>/trust/bundles" 0 $?
+  "$@" verify "$art/prod-signed.txt" --no-pin-updates > "$WORK/mg-$side-prod.txt" 2>&1
+  check "$side verifies through the managed bundle with nothing in the user's home" 0 $?
+  "$@" trust list > "$WORK/mg-$side-list.txt" 2>&1
+  "$@" trust add acme "$TR/bundles/acme-v1/trust-bundle.json" --signer "$TR_SIGNER" --yes >/dev/null 2>&1
+  check "$side refuses a user bundle that takes a managed name" 1 $?
+
+  printf '{%s,"default":"off","rules":[]}\n' "$POLICY_V1" > "$home/policy.json"
+  printf '{%s,"default":"enforce","rules":[]}\n' "$POLICY_V1" > "$m/managed-policy.json"
+  mkdir -p "$proj/.promptsign"
+  printf '{%s,"default":"off","rules":[]}\n' "$POLICY_V1" > "$proj/.promptsign/policy.json"
+  (cd "$proj" && "$@" verify CLAUDE.md --no-pin-updates) > "$WORK/mg-$side-unsigned.txt" 2>&1
+  check "$side fails an unsigned file under a managed enforce, despite user and project off" 2 $?
+  (cd "$proj" && "$@" policy show) > "$WORK/mg-$side-show.txt" 2>&1
+  rm -r "$proj/.promptsign"
+
+  printf '{%s,"default":"warn","rules":[]}\n' "$POLICY_V1" > "$m/managed-policy.json"
+  printf '{%s,"default":"warn","rules":[{"pattern":"*","trust_root":"sigstore-public","action":"enforce"}]}\n' \
+    "$POLICY_V1" > "$home/policy.json"
+  "$@" verify "$art/prod-signed.txt" --no-pin-updates > "$WORK/mg-$side-tighten.txt" 2>&1
+  check "$side lets the user's policy tighten the managed one" 2 $?
+  grep -q 'user policy: trust root "acme/prod" not allowed' "$WORK/mg-$side-tighten.txt"
+  check "$side prefixes the user layer's findings" 0 $?
+  rm "$home/policy.json"
+
+  "$@" trust rm acme --managed >/dev/null 2>&1
+  check "$side removes the managed bundle" 0 $?
+  "$@" trust add acme "$TR/bundles/acme-v1/trust-bundle.json" --signer "$TR_SIGNER" --yes >/dev/null 2>&1
+  check "$side installs acme v1 for the user" 0 $?
+  "$@" verify "$art/prod-signed.txt" --no-pin-updates >/dev/null 2>&1
+  check "$side verifies through the user's bundle under a managed policy" 0 $?
+  printf '{%s,"default":"warn","rules":[],"user_roots":false}\n' "$POLICY_V1" > "$m/managed-policy.json"
+  "$@" verify "$art/prod-signed.txt" --no-pin-updates > "$WORK/mg-$side-user-roots.txt" 2>&1
+  check "$side ignores the user's bundle under user_roots: false" 2 $?
+
+  printf '{%s,"default":"warn","rules":[],"lock_env":true}\n' "$POLICY_V1" > "$m/managed-policy.json"
+  HOME="$base/os-home" USERPROFILE="$base/os-home" \
+    "$@" verify "$art/prod-signed.txt" --no-pin-updates >/dev/null 2>&1
+  check "$side ignores PROMPTSIGN_HOME under lock_env" 2 $?
+  unset PROMPTSIGN_MANAGED_DIR
+}
+
+if [ -e "$MANAGED_PLATFORM_DIR" ]; then
+  skip "section 14 managed layer ($MANAGED_PLATFORM_DIR exists)"
+else
+  # $IMPL_A / $IMPL_B are intentionally unquoted: they may carry arguments.
+  managed_layer A $IMPL_A
+  if have_b; then
+    managed_layer B $IMPL_B
+    for f in prod list unsigned show tighten user-roots; do
+      if diff -u <(sed "s|mg-A|mg-X|g" "$WORK/mg-A-$f.txt") \
+                 <(sed "s|mg-B|mg-X|g" "$WORK/mg-B-$f.txt") > "$WORK/mg-diff.txt"; then
+        PASS=$((PASS+1)); echo "ok   - managed-layer output byte-identical ($f)"
+      else
+        FAIL=$((FAIL+1)); echo "FAIL - managed-layer output differs ($f):"; cat "$WORK/mg-diff.txt"
+      fi
+    done
+  else
+    skip "section 14 on B and output parity (no IMPL_B)"
+  fi
+fi
+
 echo
 echo "conformance: $PASS passed, $FAIL failed, $SKIP skipped  (work dir: $WORK)"
 [ "$FAIL" = 0 ]
