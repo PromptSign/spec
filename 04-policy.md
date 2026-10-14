@@ -121,9 +121,9 @@ the `strict`, `lock_env` and `user_roots` settings in effect.
 
 ## Additional keys
 
-`revocation_feed`, `revocation_feed_identity`, `revocation_feed_issuer`,
-`max_feed_staleness`, and `on_feed_stale` are specified in
-[Spec 06](06-revocation.md). Verifiers read them from the managed policy when
+[Spec 06](06-revocation.md) specifies `revocation_feed`,
+`revocation_feed_identity`, `revocation_feed_issuer`,
+`revocation_feed_trust_root`, `max_feed_staleness` and `on_feed_stale`. Verifiers read them from the managed policy when
 it sets `revocation_feed`, else from the user policy. [Spec 07](07-trust-roots.md)
 §5.6 specifies `on_trust_bundle_stale`; `fail` in the managed or the user
 policy wins.

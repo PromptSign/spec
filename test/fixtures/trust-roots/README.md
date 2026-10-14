@@ -42,6 +42,8 @@ one signer: `https://github.com/acme/trust/.github/workflows/publish.yml@refs/he
 | `bundles/acme-v2` | 2 | 2126-01-01 | the listed signer | updates v1 |
 | `bundles/acme-v2-unlisted-signer` | 2 | 2126-01-01 | `https://github.com/mallory/…`, not listed | refused, as an install and as an update |
 | `bundles/acme-stale` | 1 | 2026-09-30 | the listed signer | refused as an install (expired); see below |
+| `bundles/acme-feed` | 1 | 2126-01-01 | the listed signer | installs; its `revocationFeed` root resolves to `acme/prod` |
+| `bundles/acme-feed-bad-root` | 1 | 2126-01-01 | the listed signer | refused: its `revocationFeed` names root `staging`, which the bundle does not hold |
 
 With v2 installed, `bundles/acme-v1` is refused as a rollback.
 

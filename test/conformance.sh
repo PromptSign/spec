@@ -389,6 +389,18 @@ trust_roots() { # trust_roots <A|B> <command...>
   check "$side refuses a rollback to v1" 1 $?
   "$@" trust list > "$WORK/tr-$side-list.txt" 2>&1
 
+  # A bundle may name its revocation feed (spec/07 §5.1); the feed's root must
+  # be the built-in one or the bundle's own.
+  export PROMPTSIGN_HOME="$home-feed"
+  mkdir -p "$home-feed"
+  "$@" trust add acme "$TR/bundles/acme-feed-bad-root/trust-bundle.json" --signer "$TR_SIGNER" --yes > "$WORK/tr-$side-feed-bad.txt" 2>&1
+  check "$side refuses a bundle whose revocationFeed root it does not hold" 1 $?
+  # Drop the program name, which differs by implementation.
+  sed 's/^promptsign[a-z-]*: //' "$WORK/tr-$side-feed-bad.txt" > "$WORK/tr-$side-feed-bad.tmp"
+  mv "$WORK/tr-$side-feed-bad.tmp" "$WORK/tr-$side-feed-bad.txt"
+  "$@" trust add acme "$TR/bundles/acme-feed/trust-bundle.json" --signer "$TR_SIGNER" --yes >/dev/null 2>&1
+  check "$side installs a bundle that names its revocation feed" 0 $?
+
   # An expired bundle cannot be installed, so it goes straight into the store.
   export PROMPTSIGN_HOME="$home-stale"
   mkdir -p "$home-stale/trust/bundles/acme"
@@ -418,7 +430,7 @@ trust_roots() { # trust_roots <A|B> <command...>
 trust_roots A $IMPL_A
 if have_b; then
   trust_roots B $IMPL_B
-  for f in prod before after list stale public; do
+  for f in prod before after list stale public feed-bad; do
     [ -f "$WORK/tr-A-$f.txt" ] || continue
     if diff -u <(sed "s|$WORK/home-tr-A|HOME|g" "$WORK/tr-A-$f.txt") \
                <(sed "s|$WORK/home-tr-B|HOME|g" "$WORK/tr-B-$f.txt") > "$WORK/tr-diff.txt"; then

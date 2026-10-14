@@ -235,7 +235,12 @@ with `promptsign sign` and needs no other tooling.
       "issuer": "https://token.actions.githubusercontent.com",
       "root": "sigstore-public"
     }
-  ]
+  ],
+  "revocationFeed": {
+    "url": "https://trust.acme.example/revocation.json",
+    "identity": "CN=revocation,O=Acme",
+    "root": "ca"
+  }
 }
 ```
 
@@ -247,6 +252,7 @@ with `promptsign sign` and needs no other tooling.
 | `issued`, `expires` | RFC 3339. `expires` is later than `issued`. |
 | `roots` | One or more root documents (§1), keyed by root name (§2.1). |
 | `signers` | One or more accepted signers of the **next** version: `identity` (a glob, as in spec/04), `issuer` (exact), and `root`, the root the signer's certificate must chain to: `sigstore-public` or a key of this bundle's `roots`. |
+| `revocationFeed` | Optional. Where the organization serves its revocation feed ([Spec 06](06-revocation.md) §3) and who signs it: `url`, `identity` (a glob), `issuer` (an optional glob) and `root`, resolved like a signer's. A policy uses it with `"revocation_feed": "trust-bundle:<name>"`. |
 
 The publisher places a keyless (spec/05) sidecar signature beside the bundle
 file as `<file>.psig.json` (spec/03). For a bundle at `<url>`, verifiers fetch
