@@ -58,6 +58,20 @@ Each file in `artifacts/` has a keyless sidecar, signed by `alice@acme.test`
 | `before-retirement.txt` | `acme/old` | 2026-06-01 | fails | verifies, `root` `acme/old` |
 | `after-retirement.txt` | `acme/old` | 2026-08-01 | fails | fails: outside the CA's `validFor` |
 
+## Rotated intermediate
+
+`rotated/` holds a third deployment, `acme-rotated`, that issues leaves from an
+intermediate under an offline root. Its `trusted_root.json` lists two CA
+entries: generation 1, the intermediate and the root, valid 2026-01-01 to
+2026-07-01; and generation 2, the same root alone, valid from 2026-07-01.
+`alice@acme.test` signed both files through intermediate 1, and their sidecars
+staple the leaf, the intermediate and the root.
+
+| File | Witnessed | With `rotated/trusted_root.json` added as `acme-rotated` |
+|---|---|---|
+| `rotated/before-rotation.txt` | 2026-06-01 | verifies, `root` `acme-rotated` |
+| `rotated/retired-intermediate.txt` | 2026-08-01 | fails: intermediate 1 is outside its entry's `validFor`, though generation 2's open entry lists the root |
+
 ## Staleness
 
 An expired bundle cannot be installed, so a check of staleness writes

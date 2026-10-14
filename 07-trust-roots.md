@@ -210,6 +210,13 @@ when it has none.
 When the same certificate appears in several CA entries, a chain that ends at
 it is accepted if any one of those entries' windows holds.
 
+The rule covers every certificate on the chain that the root lists,
+including intermediates below the one the chain ends at. A publisher who
+rotates an intermediate under one offline root lists the root in the new entry
+as well. To retire the old intermediate, the publisher ends the old entry's
+window. A verifier then accepts the intermediate's signatures only from inside
+the window of an entry that lists it.
+
 ## 5. Trust bundles
 
 An organization distributes and rotates its roots in a trust bundle: an
@@ -342,6 +349,8 @@ fixtures in [`test/fixtures/trust-roots`](test/fixtures/trust-roots):
   `<bundle>/<root>`.
 - A signature whose `integratedTime` falls outside its CA's or log's
   `validFor` window fails.
+- A signature whose `integratedTime` falls after the window of its
+  intermediate's entry fails, even when a newer, open entry lists the same root.
 - The verifier rejects a bundle update from a signer the installed version does
   not list, and rejects an update with a lower version.
 - A stale bundle's roots verify with a warning under the default policy, and

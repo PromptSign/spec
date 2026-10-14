@@ -424,13 +424,25 @@ trust_roots() { # trust_roots <A|B> <command...>
   else
     skip "$side public keyless signature (fixture not signed yet)"
   fi
+
+  # A root that rotated its intermediate under one offline root (spec/07 §4):
+  # the retired intermediate's window binds even though a newer entry lists
+  # the same root.
+  export PROMPTSIGN_HOME="$home-rotated"
+  mkdir -p "$home-rotated"
+  "$@" trust add acme-rotated --trusted-root "$TR/rotated/trusted_root.json" --yes >/dev/null 2>&1
+  check "$side installs a root that rotated its intermediate" 0 $?
+  "$@" verify "$TR/rotated/before-rotation.txt" --no-pin-updates > "$WORK/tr-$side-rotated-before.txt" 2>&1
+  check "$side verifies a signature made while intermediate 1 was current" 0 $?
+  "$@" verify "$TR/rotated/retired-intermediate.txt" --no-pin-updates > "$WORK/tr-$side-rotated-after.txt" 2>&1
+  check "$side fails a signature from a retired intermediate under a shared root" 2 $?
 }
 
 # $IMPL_A / $IMPL_B are intentionally unquoted: they may carry arguments.
 trust_roots A $IMPL_A
 if have_b; then
   trust_roots B $IMPL_B
-  for f in prod before after list stale public feed-bad; do
+  for f in prod before after list stale public feed-bad rotated-before rotated-after; do
     [ -f "$WORK/tr-A-$f.txt" ] || continue
     if diff -u <(sed "s|$WORK/home-tr-A|HOME|g" "$WORK/tr-A-$f.txt") \
                <(sed "s|$WORK/home-tr-B|HOME|g" "$WORK/tr-B-$f.txt") > "$WORK/tr-diff.txt"; then

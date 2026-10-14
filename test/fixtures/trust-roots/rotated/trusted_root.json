@@ -1,0 +1,53 @@
+{
+  "certificateAuthorities": [
+    {
+      "certChain": {
+        "certificates": [
+          {
+            "rawBytes": "MIIB0TCCAXagAwIBAgICA+gwCgYIKoZIzj0EAwIwNzEZMBcGA1UECgwQcHJvbXB0c2lnbiB0ZXN0czEaMBgGA1UEAwwRYWNtZSByb3RhdGVkIHJvb3QwIBcNMjUwMTAxMDAwMDAwWhgPMjEyNTAxMDEwMDAwMDBaMEExGTAXBgNVBAoMEHByb21wdHNpZ24gdGVzdHMxJDAiBgNVBAMMG2FjbWUgcm90YXRlZCBpbnRlcm1lZGlhdGUgMTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABPaLHeD1zmhhkvS9D9NBY4Y/LonThfi8+4WXlTOlesmwTwIqtrCWyL9CgE2OZ9OLP4iGaYDMkD9o/enS4UPZMmejZjBkMB0GA1UdDgQWBBSMW/WnCuKbfSbqtwwFHciL0tIq5jAfBgNVHSMEGDAWgBTIZFs2jPtCKeqsj29x95qlimUJozASBgNVHRMBAf8ECDAGAQH/AgEAMA4GA1UdDwEB/wQEAwIBBjAKBggqhkjOPQQDAgNJADBGAiEAnX0+0Zl/9L4yfd/1IBvc7h0PSDX5s/6JyGGbsgYDm7sCIQD9MXkcoyKiD51dnX2Qq1UmQs66T968QmdVr+hpOe9j7g=="
+          },
+          {
+            "rawBytes": "MIIBoDCCAUegAwIBAgIBATAKBggqhkjOPQQDAjA3MRkwFwYDVQQKDBBwcm9tcHRzaWduIHRlc3RzMRowGAYDVQQDDBFhY21lIHJvdGF0ZWQgcm9vdDAgFw0yNjAxMDEwMDAwMDBaGA8yMTI2MDEwMTAwMDAwMFowNzEZMBcGA1UECgwQcHJvbXB0c2lnbiB0ZXN0czEaMBgGA1UEAwwRYWNtZSByb3RhdGVkIHJvb3QwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARIABH9hg6uMIzEKR7pdOqkDe1umeGlHMpdHmlP24Va+79mQTyV05nKiOWMYjgWbcs8B/bBdQmvjtG4uxXOSkn9o0IwQDAdBgNVHQ4EFgQUyGRbNoz7QinqrI9vcfeapYplCaMwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwCgYIKoZIzj0EAwIDRwAwRAIgYexKfdKshHxgMtDWHEP1GxB8eAS4wn6DMik5ghkP/CsCIG7uto6qfy1gFol8ZprHDZeqq6SA0S8H4Cbb3qWStOEC"
+          }
+        ]
+      },
+      "subject": {
+        "commonName": "test"
+      },
+      "validFor": {
+        "end": "2026-07-01T00:00:00Z",
+        "start": "2026-01-01T00:00:00Z"
+      }
+    },
+    {
+      "certChain": {
+        "certificates": [
+          {
+            "rawBytes": "MIIBoDCCAUegAwIBAgIBATAKBggqhkjOPQQDAjA3MRkwFwYDVQQKDBBwcm9tcHRzaWduIHRlc3RzMRowGAYDVQQDDBFhY21lIHJvdGF0ZWQgcm9vdDAgFw0yNjAxMDEwMDAwMDBaGA8yMTI2MDEwMTAwMDAwMFowNzEZMBcGA1UECgwQcHJvbXB0c2lnbiB0ZXN0czEaMBgGA1UEAwwRYWNtZSByb3RhdGVkIHJvb3QwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARIABH9hg6uMIzEKR7pdOqkDe1umeGlHMpdHmlP24Va+79mQTyV05nKiOWMYjgWbcs8B/bBdQmvjtG4uxXOSkn9o0IwQDAdBgNVHQ4EFgQUyGRbNoz7QinqrI9vcfeapYplCaMwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwCgYIKoZIzj0EAwIDRwAwRAIgYexKfdKshHxgMtDWHEP1GxB8eAS4wn6DMik5ghkP/CsCIG7uto6qfy1gFol8ZprHDZeqq6SA0S8H4Cbb3qWStOEC"
+          }
+        ]
+      },
+      "subject": {
+        "commonName": "acme rotated root"
+      },
+      "validFor": {
+        "start": "2026-07-01T00:00:00Z"
+      }
+    }
+  ],
+  "ctlogs": [],
+  "mediaType": "application/vnd.dev.sigstore.trustedroot+json;version=0.1",
+  "timestampAuthorities": [],
+  "tlogs": [
+    {
+      "hashAlgorithm": "SHA2_256",
+      "logId": {
+        "keyId": "XBX0apaf9tAZeXjpviK1kGW+XhkrMGi/9L8Ngkg716k="
+      },
+      "publicKey": {
+        "keyDetails": "PKIX_ECDSA_P256_SHA_256",
+        "rawBytes": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkYGwJYL1xoWbb5PreJn6XXctOOVxcqZJNnTTvpzXVWHD7kM60N4HAyZmS89iZkDKJSnD2cVbA6O2xXtWVIrUvQ=="
+      }
+    }
+  ]
+}
