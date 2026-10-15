@@ -81,6 +81,9 @@ A verifier MUST perform the following steps in order:
 1. Verify the envelope signature ([Spec 03](03-bundle.md)).
 2. Recompute every listed digest from disk. Fail if any digest mismatches or any referenced file is missing.
 3. If `scope: dir`, fail if any unlisted file is present.
-4. Evaluate the trust policy ([Spec 04](04-policy.md)).
+4. If `scope: dir`, fail if the tree contains a symbolic link or a Windows directory junction, whether or not the manifest lists its path. The walk MUST NOT follow it.
+5. Evaluate the trust policy ([Spec 04](04-policy.md)).
 
-Integrity failures (steps 2–3) are unconditional. Policy MUST NOT waive them for a signed artifact.
+Integrity failures (steps 2–4) are unconditional. Policy MUST NOT waive them for a signed artifact.
+
+A signer MUST refuse to sign a tree that contains a symbolic link or a directory junction. With a link inside, the bundle carries content the publisher does not control: anyone who can write to the link's target adds files that no digest covers, and anyone who retargets the link changes what the host loads.

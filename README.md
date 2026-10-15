@@ -188,7 +188,8 @@ An implementation is a conforming **verifier** if, for every bundle, it:
    and identity extracted from the certificate rather than the display hints.
 3. Recomputes every manifest digest from disk using [02](02-canonicalization.md),
    failing on any mismatch or missing file, and, for `scope: dir`, on any
-   unlisted file present ([01](01-manifest.md)).
+   unlisted file, symbolic link or directory junction present
+   ([01](01-manifest.md)).
 4. Rejects manifest paths that are absolute or contain `..`
    ([01](01-manifest.md)).
 5. Treats integrity failures and TOFU pin mismatches as unconditional: policy
