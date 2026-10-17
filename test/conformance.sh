@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # PromptSign conformance suite — wire-format agreement between two independent
-# implementations of spec/01–05, 07 and 08.
+# implementations of spec/01–05, 07, 08 and 09.
 #
 # One implementation is a spec of one. This suite is how you check that a second
 # one agrees: bundles signed by either verify in the other, canonical digests
@@ -651,6 +651,30 @@ else
     skip "section 15 on B and record parity (no IMPL_B)"
   fi
 fi
+
+# ---- 16. Approvals (spec/09) -------------------------------------------------
+# Both sides compute the same content listing, the bytes an approval covers,
+# and refuse an artifact whose rule requires approvals it lacks.
+mkskill "$WORK/skill-appr"
+cat > "$WORK/appr-policy.json" <<'POLICY'
+{ "schema": "promptsign/policy/v1",
+  "rules": [{ "pattern": "*", "action": "enforce",
+              "approval": { "approvers": [{ "identity": "*@acme.test" }] } }] }
+POLICY
+
+approvals() { # approvals <A|B> <impl...>
+  local side=$1; shift
+  "$@" approve --listing "$WORK/skill-appr" > "$WORK/listing-$side.txt" 2>/dev/null
+  check "$side prints the content listing" 0 $?
+  cmp -s "$WORK/listing-$side.txt" "$HERE/fixtures/approvals/listing.txt"
+  check "$side content listing matches fixtures/approvals/listing.txt" 0 $?
+  PROMPTSIGN_HOME="$WORK/appr-$side" "$@" verify "$WORK/skill-appr" \
+    --policy "$WORK/appr-policy.json" --no-pin-updates >/dev/null 2>&1
+  check "$side refuses an artifact without the approvals its rule requires" 2 $?
+}
+
+approvals A $IMPL_A
+if have_b; then approvals B $IMPL_B; else skip "section 16 on B (no IMPL_B)"; fi
 
 echo
 echo "conformance: $PASS passed, $FAIL failed, $SKIP skipped  (work dir: $WORK)"

@@ -132,6 +132,9 @@ policy wins.
 and `decision_log_max_bytes`. Verifiers read them from the managed and the
 user policy, and each of the two that sets `decision_log: true` gets a log.
 
-`require_attestations` (e.g. `promptsign/scan/v1`, `promptsign/review/v1`) is
-reserved; no spec in this series defines it yet. Enterprise roots are
-`trust_root` (spec/07).
+[Spec 09](09-approvals.md) specifies the rule key `approval`: a number of
+approvals of the artifact's exact content, by approvers the rule names.
+
+This series reserves `require_attestations` (e.g. `promptsign/scan/v1`) for
+other attestation types and defines it in no spec yet. Enterprise roots
+are `trust_root` (spec/07).

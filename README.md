@@ -44,8 +44,9 @@ Anything that displays a verification result should **name the identity**
 | 06 | [Revocation feed](06-revocation.md) | `promptsign/revocation/v1` | Draft v0.1 |
 | 07 | [Trust roots and trust bundles](07-trust-roots.md) | `promptsign/trust-bundle/v1` | Draft v0.1 |
 | 08 | [Decision log](08-decision-log.md) | `promptsign/decision-log/v1` | Draft v0.1 |
+| 09 | [Approvals](09-approvals.md) | `https://promptsign.dev/approval/v1` | Draft v0.1 |
 
-All eight are normative. No schema identifier is stable yet; see
+All nine are normative. No schema identifier is stable yet; see
 [Versioning](#versioning) for how they will change.
 
 **Reading order** is also dependency order:
@@ -55,7 +56,8 @@ All eight are normative. No schema identifier is stable yet; see
 02 canon. ────┘               │                │
                               └─▶ 04 policy ───┴─▶ 07 trust roots
                                    │
-                                   └─▶ 08 decision log
+                                   ├─▶ 08 decision log
+                                   └─▶ 09 approvals
 ```
 
 01 defines *what* is signed and 02 defines the bytes its digests are taken
@@ -64,7 +66,8 @@ valid signature is one you should accept; 05 replaces local keys with
 certificate-bound OpenID Connect (OIDC) identities; 06 retracts signatures
 after the fact; 07 says which certificate authorities and logs a verifier
 trusts, and how an organization distributes and rotates its own; 08 records
-every verdict in a local log.
+every verdict in a local log; 09 lets a policy require reviewers' approvals
+of the exact bytes.
 
 ## Threat model
 
@@ -202,6 +205,9 @@ An implementation is a conforming **verifier** if, for every bundle, it:
    otherwise ([06 §4](06-revocation.md)).
 8. Evaluates the machine's managed policy first, and lets the user's and the
    project's policies only tighten it ([04](04-policy.md)).
+9. Counts only approvals that verify offline and cover the artifact's content
+   digest, or treats a rule that requires approvals as unmet
+   ([09](09-approvals.md)).
 
 Steps 1–6 MUST require no network access. Verification that can be *down* is
 not verification, and a verifier that phones home is a tracking beacon.
@@ -214,7 +220,8 @@ digests match byte for byte, both reach the same verdict under the same policy,
 both fail closed on an unknown signature scheme, and both reach the
 [07 §6](07-trust-roots.md#6-conformance) verdicts on the shared trust-root
 fixtures in [`test/fixtures/trust-roots`](test/fixtures/trust-roots),
-including those for a managed directory.
+including those for a managed directory. Both also compute the content listing
+of [09 §1](09-approvals.md) byte for byte.
 
 ```bash
 IMPL_A="node …/promptsign-node/src/index.mjs" \
